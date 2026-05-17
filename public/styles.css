@@ -972,7 +972,8 @@ dd {
   gap: 18px;
 }
 
-.admin-shell {
+.admin-shell,
+.account-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
@@ -980,14 +981,17 @@ dd {
 }
 
 .admin-sidebar,
-.admin-content {
+.admin-content,
+.account-sidebar,
+.account-content {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: white;
   box-shadow: var(--shadow);
 }
 
-.admin-sidebar {
+.admin-sidebar,
+.account-sidebar {
   position: sticky;
   top: 96px;
   display: grid;
@@ -996,11 +1000,13 @@ dd {
   padding: 24px;
 }
 
-.admin-sidebar h1 {
+.admin-sidebar h1,
+.account-sidebar h1 {
   font-size: 32px;
 }
 
-.admin-sidebar a {
+.admin-sidebar a,
+.account-sidebar a {
   padding: 12px 14px;
   color: var(--muted);
   border-radius: 8px;
@@ -1008,13 +1014,20 @@ dd {
 }
 
 .admin-sidebar a.active,
-.admin-sidebar a:hover {
+.admin-sidebar a:hover,
+.account-sidebar a.active,
+.account-sidebar a:hover {
   color: var(--primary-dark);
   background: var(--surface-2);
 }
 
-.admin-content {
+.admin-content,
+.account-content {
   padding: 28px;
+}
+
+.section-head.compact {
+  margin-bottom: 20px;
 }
 
 .admin-content button {
@@ -1210,6 +1223,7 @@ dd {
   }
 
   .admin-shell,
+  .account-shell,
   .admin-form,
   .admin-row,
   .admin-order-row {

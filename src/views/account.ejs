@@ -1,45 +1,57 @@
 <%- include("partials/header") %>
 
-<section class="account-layout">
-  <aside class="account-panel">
+<section class="account-shell">
+  <aside class="account-sidebar">
     <p class="eyebrow">Account</p>
-    <h1><%= user.name %></h1>
-    <dl class="order-meta account-credentials">
-      <dt>Email</dt><dd><%= user.email %></dd>
-      <dt>密碼</dt>
-      <dd class="password-stack">
-        <span><%= passwordLabel %></span>
-        <form method="post" action="/account/reset-panel-password">
-          <button class="button ghost" type="submit">重設密碼</button>
-        </form>
-      </dd>
-    </dl>
-    <% if (resetPassword) { %>
-      <div class="notice">密碼已重設，可用於本店登入與 Panel 登入：<strong><%= resetPassword %></strong></div>
-    <% } %>
+    <h1>會員中心</h1>
+    <a class="<%= activeTab === 'profile' ? 'active' : '' %>" href="/account?tab=profile">個人資料</a>
+    <a class="<%= activeTab === 'orders' ? 'active' : '' %>" href="/account?tab=orders">我的訂單</a>
   </aside>
 
-  <section class="orders-panel">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">Orders</p>
-        <h2>我的訂單</h2>
+  <section class="account-content">
+    <% if (activeTab === 'profile') { %>
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">Profile</p>
+          <h2>個人資料</h2>
+        </div>
       </div>
-      <a class="button ghost" href="/#plans">新增服務</a>
-    </div>
-    <% if (orders.length === 0) { %>
-      <div class="empty-state">目前沒有訂單。</div>
-    <% } else { %>
-      <div class="order-list">
-        <% orders.forEach((order) => { %>
-          <a class="order-row" href="/orders/<%= order.id %>">
-            <strong><%= order.product_name %></strong>
-            <span><%= order.order_no %></span>
-            <span>NT$ <%= order.amount %></span>
-            <em><%= order.status %></em>
-          </a>
-        <% }) %>
+      <dl class="order-meta account-credentials">
+        <dt>Email</dt><dd><%= user.email %></dd>
+        <dt>密碼</dt>
+        <dd class="password-stack">
+          <span><%= passwordLabel %></span>
+          <form method="post" action="/account/reset-panel-password">
+            <button class="button ghost" type="submit">重設密碼</button>
+          </form>
+        </dd>
+      </dl>
+      <% if (resetPassword) { %>
+        <div class="notice">密碼已重設，可用於本店登入與 Panel 登入：<strong><%= resetPassword %></strong></div>
+      <% } %>
+    <% } %>
+
+    <% if (activeTab === 'orders') { %>
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">Orders</p>
+          <h2>我的訂單</h2>
+        </div>
       </div>
+      <% if (orders.length === 0) { %>
+        <div class="empty-state">目前沒有訂單。</div>
+      <% } else { %>
+        <div class="order-list">
+          <% orders.forEach((order) => { %>
+            <a class="order-row" href="/orders/<%= order.id %>">
+              <strong><%= order.product_name %></strong>
+              <span><%= order.order_no %></span>
+              <span>NT$ <%= order.amount %></span>
+              <em><%= statusLabels[order.status] || order.status %></em>
+            </a>
+          <% }) %>
+        </div>
+      <% } %>
     <% } %>
   </section>
 </section>

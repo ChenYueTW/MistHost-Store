@@ -436,6 +436,7 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 
 app.get("/account", requireAuth, async (req, res, next) => {
   try {
+    const activeTab = req.query.tab === "orders" ? "orders" : "profile";
     const orders = await query(`
       SELECT o.*, p.name AS product_name
       FROM orders o
@@ -443,7 +444,13 @@ app.get("/account", requireAuth, async (req, res, next) => {
       WHERE o.customer_id = :customerId
       ORDER BY o.created_at DESC
     `, { customerId: req.session.userId });
-    res.render("account", { orders, passwordLabel: res.locals.user.panel_password_last || "尚未儲存", resetPassword: null });
+    res.render("account", {
+      activeTab,
+      orders,
+      passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
+      resetPassword: null,
+      statusLabels
+    });
   } catch (error) {
     next(error);
   }
@@ -476,7 +483,13 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
       ORDER BY o.created_at DESC
     `, { customerId: req.session.userId });
     res.locals.user.panel_password_last = password;
-    res.render("account", { orders, passwordLabel: password, resetPassword: password });
+    res.render("account", {
+      activeTab: "profile",
+      orders,
+      passwordLabel: password,
+      resetPassword: password,
+      statusLabels
+    });
   } catch (error) {
     next(error);
   }
