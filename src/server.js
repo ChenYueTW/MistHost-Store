@@ -21,9 +21,9 @@ import { ensurePanelUser, getPanelUserByEmail, provisionServer, resetPanelUserPa
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const paymentMethods = {
-  cvs_711: { label: "7-11 超商代碼", choosePayment: "CVS", feeKey: "cvs" },
-  cvs_family: { label: "全家超商代碼", choosePayment: "CVS", feeKey: "cvs" },
-  cvs_hilife: { label: "萊爾富超商代碼", choosePayment: "CVS", feeKey: "cvs" }
+  cvs_711: { label: "7-11 超商代碼", choosePayment: "CVS", chooseSubPayment: "IBON", feeKey: "cvs" },
+  cvs_family: { label: "全家超商代碼", choosePayment: "CVS", chooseSubPayment: "FAMILY", feeKey: "cvs" },
+  cvs_hilife: { label: "萊爾富超商代碼", choosePayment: "CVS", chooseSubPayment: "HILIFE", feeKey: "cvs" }
 };
 const productCategories = ["Minecraft伺服器", "Discord Bot"];
 const orderStatuses = [
@@ -98,9 +98,10 @@ app.post("/cart/add/:productId", async (req, res, next) => {
     if (!product) return res.status(404).render("error", { message: "找不到方案。" });
     const quantity = Math.max(1, Math.min(10, Number.parseInt(req.body.quantity || "1", 10) || 1));
     const cart = getSessionCart(req);
-    const existing = cart.items.find((item) => item.productId === product.id);
+    const productId = Number(product.id);
+    const existing = cart.items.find((item) => Number(item.productId) === productId);
     if (existing) existing.quantity = Math.min(10, existing.quantity + quantity);
-    else cart.items.push({ productId: product.id, quantity });
+    else cart.items.push({ productId, quantity });
     req.session.cart = cart;
     res.redirect("/cart");
   } catch (error) {
@@ -156,7 +157,7 @@ app.post("/cart/payment", async (req, res, next) => {
 app.post("/cart/quantity/:productId", async (req, res, next) => {
   const cart = getSessionCart(req);
   const productId = Number(req.params.productId);
-  const item = cart.items.find((entry) => entry.productId === productId);
+  const item = cart.items.find((entry) => Number(entry.productId) === productId);
   if (!item) return res.redirect("/cart");
 
   const action = String(req.body.action || "");
@@ -174,7 +175,7 @@ app.post("/cart/quantity/:productId", async (req, res, next) => {
 
 app.post("/cart/remove/:productId", (req, res) => {
   const cart = getSessionCart(req);
-  cart.items = cart.items.filter((item) => item.productId !== Number(req.params.productId));
+  cart.items = cart.items.filter((item) => Number(item.productId) !== Number(req.params.productId));
   req.session.cart = cart;
   res.redirect("/cart");
 });
@@ -271,14 +272,16 @@ app.post("/checkout", requireAuth, async (req, res, next) => {
       MerchantTradeDate: formatEcpayDate(new Date()),
       PaymentType: "aio",
       TotalAmount: String(cart.total),
-      TradeDesc: `${config.site.name} hosting order ${paymentMethod.label}`,
+      TradeDesc: "MistHost hosting order",
       ItemName: itemName.slice(0, 400),
       ReturnURL: `${baseUrl}/payments/ecpay/return`,
-      OrderResultURL: `${baseUrl}/orders/${orderResult.insertId}`,
       ChoosePayment: paymentMethod.choosePayment,
       EncryptType: "1",
+      StoreExpireDate: "10080",
+      ClientBackURL: `${baseUrl}/orders/${orderResult.insertId}`,
+      ChooseSubPayment: paymentMethod.chooseSubPayment,
       CustomField1: String(orderResult.insertId),
-      CustomField2: paymentMethod.label
+      CustomField2: cart.paymentMethod
     };
     res.render("ecpay-form", paymentForm(params));
   } catch (error) {
@@ -689,7 +692,8 @@ async function buildCart(req) {
   const sessionCart = getSessionCart(req);
   const items = [];
   for (const item of sessionCart.items) {
-    const product = await findProduct(item.productId);
+    const productId = Number(item.productId);
+    const product = await findProduct(productId);
     if (!product) continue;
     const quantity = Math.max(1, Number(item.quantity) || 1);
     items.push({ product, quantity, lineTotal: product.price * quantity });

@@ -112,7 +112,9 @@
     <div class="summary-line"><span>手續費</span><strong id="cart-payment-fee">NT$ <%= cart.paymentFee %></strong></div>
     <div class="summary-total"><span>總計</span><strong id="cart-total">NT$ <%= cart.total %></strong></div>
     <% if (user) { %>
-      <a class="button primary full" href="/checkout">結帳</a>
+      <form method="post" action="/checkout">
+        <button class="button primary full" type="submit">結帳</button>
+      </form>
     <% } else { %>
       <a class="button primary full" href="#cart-auth">結帳</a>
     <% } %>
@@ -150,13 +152,21 @@
   document.querySelectorAll(".quantity-form").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      updateCartView(await postForm(form));
+      try {
+        updateCartView(await postForm(form));
+      } catch {
+        form.submit();
+      }
     });
   });
 
   document.querySelectorAll(".payment-method-select").forEach((select) => {
     select.addEventListener("change", async () => {
-      updateCartView(await postForm(select.form));
+      try {
+        updateCartView(await postForm(select.form));
+      } catch {
+        select.form.submit();
+      }
     });
   });
 </script>
