@@ -1,0 +1,38 @@
+<%- include("partials/header") %>
+
+<section class="configure-layout">
+  <form class="configure-main" method="post" action="/cart/add/<%= product.id %>">
+    <p class="eyebrow"><%= product.category %></p>
+    <h1><%= product.name %></h1>
+    <p><%= product.description %></p>
+
+    <div class="config-box">
+      <h2>產品設定</h2>
+      <label>
+        付款週期
+        <select name="period">
+          <option value="monthly">月繳 - NT$ <%= product.price %></option>
+        </select>
+      </label>
+      <label>
+        數量
+        <input type="number" name="quantity" min="1" max="10" value="1">
+      </label>
+    </div>
+
+    <button class="button primary" type="submit">加入購物車</button>
+  </form>
+
+  <aside class="summary-card">
+    <h2>訂單摘要</h2>
+    <div class="summary-line"><span>方案</span><strong><%= product.name %></strong></div>
+    <div class="summary-line"><span>月租</span><strong>NT$ <%= product.price %></strong></div>
+    <ul class="specs">
+      <% Object.entries(JSON.parse(product.specs)).forEach(([key, value]) => { %>
+        <li><span><%= key %></span><strong><%= value %></strong></li>
+      <% }) %>
+    </ul>
+  </aside>
+</section>
+
+<%- include("partials/footer") %>

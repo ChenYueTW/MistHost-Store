@@ -1,0 +1,30 @@
+<%- include("partials/header") %>
+
+<section class="section page-head">
+  <p class="eyebrow">Product Group</p>
+  <h1><%= category %></h1>
+  <p>選擇一個方案後會進入詳細購買畫面。</p>
+</section>
+
+<section class="section tight">
+  <div class="plans">
+    <% products.forEach((product) => { const specs = JSON.parse(product.specs); %>
+      <article class="plan-card">
+        <div class="plan-top">
+          <span><%= product.category %></span>
+          <h3><%= product.name %></h3>
+          <p><%= product.description %></p>
+        </div>
+        <div class="price">NT$ <strong><%= product.price %></strong><small>/月</small></div>
+        <ul class="specs">
+          <% Object.entries(specs).forEach(([key, value]) => { %>
+            <li><span><%= key %></span><strong><%= value %></strong></li>
+          <% }) %>
+        </ul>
+        <a class="button primary full" href="/product/<%= product.id %>">立即租用</a>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<%- include("partials/footer") %>

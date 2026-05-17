@@ -1,0 +1,47 @@
+<%- include("partials/header") %>
+
+<section class="account-layout">
+  <aside class="account-panel">
+    <p class="eyebrow">Account</p>
+    <h1><%= user.name %></h1>
+    <dl class="order-meta account-credentials">
+      <dt>Email</dt><dd><%= user.email %></dd>
+      <dt>密碼</dt>
+      <dd class="password-stack">
+        <span><%= passwordLabel %></span>
+        <form method="post" action="/account/reset-panel-password">
+          <button class="button ghost" type="submit">重設密碼</button>
+        </form>
+      </dd>
+    </dl>
+    <% if (resetPassword) { %>
+      <div class="notice">密碼已重設，可用於本店登入與 Panel 登入：<strong><%= resetPassword %></strong></div>
+    <% } %>
+  </aside>
+
+  <section class="orders-panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Orders</p>
+        <h2>我的訂單</h2>
+      </div>
+      <a class="button ghost" href="/#plans">新增服務</a>
+    </div>
+    <% if (orders.length === 0) { %>
+      <div class="empty-state">目前沒有訂單。</div>
+    <% } else { %>
+      <div class="order-list">
+        <% orders.forEach((order) => { %>
+          <a class="order-row" href="/orders/<%= order.id %>">
+            <strong><%= order.product_name %></strong>
+            <span><%= order.order_no %></span>
+            <span>NT$ <%= order.amount %></span>
+            <em><%= order.status %></em>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</section>
+
+<%- include("partials/footer") %>

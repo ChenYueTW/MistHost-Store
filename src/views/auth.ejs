@@ -1,0 +1,40 @@
+<%- include("partials/header") %>
+
+<section class="auth-shell">
+  <form class="auth-card" method="post" action="<%= mode === 'register' ? '/register' : '/login' %>">
+    <p class="eyebrow">Client Area</p>
+    <h1><%= mode === "register" ? "建立帳戶" : "登入帳戶" %></h1>
+    <% if (error) { %>
+      <div class="alert"><%= error %></div>
+    <% } %>
+    <% if (mode === "register") { %>
+      <label>
+        姓名
+        <input name="name" autocomplete="name" required>
+      </label>
+    <% } %>
+    <label>
+      Email
+      <input type="email" name="email" autocomplete="email" required>
+    </label>
+    <label>
+      密碼
+      <input type="password" name="password" autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>" minlength="8" required>
+    </label>
+    <button class="button primary full" type="submit"><%= mode === "register" ? "註冊並同步 Panel" : "登入" %></button>
+
+    <div class="oauth-divider"><span>或使用</span></div>
+    <div class="oauth-grid">
+      <a class="button ghost full oauth-button" href="/auth/google"><img class="oauth-logo" src="https://cdn.simpleicons.org/google" alt="">Google</a>
+      <a class="button ghost full oauth-button" href="/auth/discord"><img class="oauth-logo" src="https://cdn.simpleicons.org/discord/5865F2" alt="">Discord</a>
+    </div>
+
+    <% if (mode === "register") { %>
+      <p class="auth-switch">已經有帳戶？<a href="/login">登入</a></p>
+    <% } else { %>
+      <p class="auth-switch">還沒有帳戶？<a href="/register">註冊</a></p>
+    <% } %>
+  </form>
+</section>
+
+<%- include("partials/footer") %>

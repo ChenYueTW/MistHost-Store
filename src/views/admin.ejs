@@ -1,0 +1,125 @@
+<%- include("partials/header") %>
+
+<section class="admin-shell">
+  <aside class="admin-sidebar">
+    <p class="eyebrow">Admin</p>
+    <h1>管理員介面</h1>
+    <a class="<%= activeTab === 'orders' ? 'active' : '' %>" href="/admin?tab=orders">訂單管理</a>
+    <a class="<%= activeTab === 'coupons' ? 'active' : '' %>" href="/admin?tab=coupons">優惠代碼</a>
+    <a class="<%= activeTab === 'fees' ? 'active' : '' %>" href="/admin?tab=fees">超商手續費</a>
+    <a class="<%= activeTab === 'products' ? 'active' : '' %>" href="/admin?tab=products">商品管理</a>
+    <a class="<%= activeTab === 'users' ? 'active' : '' %>" href="/admin?tab=users">使用者</a>
+  </aside>
+
+  <section class="admin-content">
+    <% if (activeTab === 'orders') { %>
+      <h2>管理訂單</h2>
+      <div class="admin-table">
+        <% orders.forEach((order) => { %>
+          <div class="admin-order-row">
+            <a class="admin-order-main" href="/orders/<%= order.id %>">
+              <strong><%= order.order_name %></strong>
+              <span><%= order.order_no %> · <%= order.customer_name %> / <%= order.email %></span>
+            </a>
+            <div class="admin-order-side">
+              <strong>NT$ <%= order.amount %></strong>
+              <details class="admin-status-menu">
+                <summary><%= statusLabels[order.status] || order.status %></summary>
+                <div>
+                  <% orderStatuses.forEach((status) => { %>
+                    <form method="post" action="/admin/orders/<%= order.id %>/status">
+                      <input type="hidden" name="status" value="<%= status.value %>">
+                      <button class="<%= order.status === status.value ? 'active' : '' %>" type="submit"><%= status.label %></button>
+                    </form>
+                  <% }) %>
+                </div>
+              </details>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (activeTab === 'coupons') { %>
+      <h2>優惠代碼</h2>
+      <form class="admin-form" method="post" action="/admin/coupons">
+        <input name="code" placeholder="代碼，例如 NEW50" required>
+        <select name="type">
+          <option value="percent">百分比</option>
+          <option value="fixed">固定金額</option>
+        </select>
+        <input type="number" name="value" min="0" placeholder="數值" required>
+        <button class="button primary" type="submit">新增/更新</button>
+      </form>
+      <div class="admin-table">
+        <% coupons.forEach((coupon) => { %>
+          <div class="admin-row">
+            <strong><%= coupon.code %></strong>
+            <span><%= coupon.type %> / <%= coupon.value %></span>
+            <form method="post" action="/admin/coupons/<%= coupon.id %>/delete">
+              <button class="admin-action-button danger" type="submit">刪除</button>
+            </form>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (activeTab === 'fees') { %>
+      <h2>更改超商代碼手續費</h2>
+      <form class="admin-form" method="post" action="/admin/fees">
+        <label>
+          超商代碼手續費
+          <input type="number" name="cvsFee" min="0" value="<%= cvsFee %>" required>
+        </label>
+        <button class="button primary" type="submit">儲存</button>
+      </form>
+    <% } %>
+
+    <% if (activeTab === 'products') { %>
+      <h2>商品管理</h2>
+      <form class="admin-form" method="post" action="/admin/products">
+        <input name="name" placeholder="商品名稱" required>
+        <input name="slug" placeholder="slug">
+        <select name="category">
+          <% productCategories.forEach((category) => { %>
+            <option value="<%= category %>"><%= category %></option>
+          <% }) %>
+        </select>
+        <input type="number" name="price" min="0" placeholder="價格" required>
+        <input name="description" placeholder="描述">
+        <button class="button primary" type="submit">新增商品</button>
+      </form>
+      <div class="admin-table">
+        <% products.forEach((product) => { %>
+          <div class="admin-row product-admin-row">
+            <strong><%= product.name %></strong>
+            <span><%= product.category %> / <%= product.active ? '上架' : '已停用' %></span>
+            <form method="post" action="/admin/products/<%= product.id %>/price">
+              <input type="number" name="price" min="0" value="<%= product.price %>">
+              <button class="admin-action-button" type="submit">改價</button>
+            </form>
+            <form method="post" action="/admin/products/<%= product.id %>/delete">
+              <button class="admin-action-button danger" type="submit">刪除</button>
+            </form>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (activeTab === 'users') { %>
+      <h2>Store 使用者</h2>
+      <div class="admin-table">
+        <% users.forEach((storeUser) => { %>
+          <div class="admin-row">
+            <strong><%= storeUser.name %></strong>
+            <span><%= storeUser.email %></span>
+            <span>SQL ID #<%= storeUser.id %></span>
+            <em>未處理 <%= storeUser.open_orders %> 筆</em>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</section>
+
+<%- include("partials/footer") %>

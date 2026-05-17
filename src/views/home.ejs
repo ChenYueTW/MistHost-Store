@@ -2,31 +2,40 @@
 
 <section class="hero">
   <div class="hero-copy">
-    <p class="eyebrow">Taiwan Game & Cloud Hosting</p>
-    <h1>高效能遊戲伺服器與雲端運算租用</h1>
-    <p class="lead">從 Minecraft、Palworld 到網站後端，使用 NVMe 儲存、DDoS 防護與 Pterodactyl 控制台快速部署。</p>
+    <p class="eyebrow">Hosting Client Portal</p>
+    <h1>遊戲伺服器與 Discord Bot 主機租用</h1>
+    <p class="lead">選擇產品、調整方案、加入購物車，再用 ECPay 完成付款。系統會把帳戶與訂單集中到會員中心，並可同步 Pterodactyl Panel。</p>
     <div class="hero-actions">
-      <a class="button primary" href="#plans">選擇方案</a>
-      <a class="button ghost" href="#network">查看規格</a>
+      <a class="button primary" href="#plans">瀏覽產品</a>
+      <a class="button ghost" href="/cart">查看購物車</a>
     </div>
   </div>
-  <div class="status-panel" aria-label="service status">
-    <div>
+  <aside class="client-card">
+    <div class="client-card-head">
       <span class="status-dot"></span>
-      <strong>TW Edge Online</strong>
+      <strong>產品分類</strong>
     </div>
-    <dl>
-      <dt>Uptime</dt><dd>99.9%</dd>
-      <dt>Deploy</dt><dd>&lt; 5 min</dd>
-      <dt>Panel</dt><dd>Pterodactyl</dd>
-    </dl>
-  </div>
+    <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>">Minecraft伺服器</a>
+    <a href="/products/<%= encodeURIComponent('Discord Bot') %>">Discord Bot</a>
+    <a href="/cart">購物車與優惠代碼</a>
+    <a href="/checkout">前往結帳</a>
+  </aside>
+</section>
+
+<section class="quick-actions">
+  <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>"><strong>Minecraft伺服器</strong><span>生存、模組、社群伺服器</span></a>
+  <a href="/products/<%= encodeURIComponent('Discord Bot') %>"><strong>Discord Bot</strong><span>Node.js、Python、工具服務</span></a>
+  <a href="/cart"><strong>優惠代碼</strong><span>在購物車或結帳套用折扣</span></a>
+  <a href="/account"><strong>會員中心</strong><span>查看訂單與服務狀態</span></a>
 </section>
 
 <section id="plans" class="section">
   <div class="section-head">
-    <p class="eyebrow">Plans</p>
-    <h2>選擇要部署的服務</h2>
+    <div>
+      <p class="eyebrow">Products</p>
+      <h2>選擇方案</h2>
+    </div>
+    <p>點擊立即租用後會先進入產品詳細購買畫面，確認規格與數量後再加入購物車。</p>
   </div>
   <div class="plans">
     <% products.forEach((product) => { const specs = JSON.parse(product.specs); %>
@@ -42,27 +51,27 @@
             <li><span><%= key %></span><strong><%= value %></strong></li>
           <% }) %>
         </ul>
-        <a class="button primary full" href="/checkout/<%= product.id %>">立即租用</a>
+        <a class="button primary full" href="/product/<%= product.id %>">立即租用</a>
       </article>
     <% }) %>
   </div>
 </section>
 
-<section id="network" class="feature-band">
+<section id="automation" class="feature-band">
   <div>
-    <p class="eyebrow">Infrastructure</p>
-    <h2>為長時間運作設計的主機體驗</h2>
+    <p class="eyebrow">Automation</p>
+    <h2>從購物車到控制台開通</h2>
   </div>
   <div class="features">
-    <div><strong>NVMe Storage</strong><span>降低世界讀取與服務啟動延遲。</span></div>
-    <div><strong>DDoS Protection</strong><span>針對遊戲與公開服務流量防護。</span></div>
-    <div><strong>Panel Automation</strong><span>付款完成後可自動建立 Pterodactyl 服務。</span></div>
+    <div><strong>產品設定</strong><span>先確認規格、數量與月租價格，再加入購物車。</span></div>
+    <div><strong>優惠代碼</strong><span>支援百分比與固定金額折抵，結帳前清楚顯示。</span></div>
+    <div><strong>ECPay 金流</strong><span>付款完成後回寫訂單並嘗試開通服務。</span></div>
   </div>
 </section>
 
 <section id="support" class="section compact">
-  <h2>付款與開通</h2>
-  <p>結帳會導向綠界 ECPay 全方位金流，支援信用卡、ATM、超商等付款方式。付款回傳成功後，系統會嘗試透過 Pterodactyl Application API 自動開通。</p>
+  <h2>客戶支援</h2>
+  <p>如需調整方案、優惠代碼或開通狀態，可從會員中心查看訂單並聯繫支援。</p>
 </section>
 
 <%- include("partials/footer") %>

@@ -5,6 +5,8 @@
   <h1>訂單 <%= order.order_no %></h1>
   <dl class="order-meta">
     <dt>方案</dt><dd><%= order.product_name %></dd>
+    <dt>小計</dt><dd>NT$ <%= order.subtotal || order.amount %></dd>
+    <dt>折扣</dt><dd>NT$ <%= order.discount_amount || 0 %></dd>
     <dt>金額</dt><dd>NT$ <%= order.amount %></dd>
     <dt>狀態</dt><dd><%= order.status %></dd>
     <dt>Email</dt><dd><%= order.email %></dd>
@@ -12,7 +14,20 @@
       <dt>開通訊息</dt><dd><%= order.provision_message %></dd>
     <% } %>
   </dl>
-  <a class="button ghost" href="/">回首頁</a>
+  <% if (items && items.length) { %>
+    <div class="cart-items mini">
+      <% items.forEach((item) => { %>
+        <div class="cart-row">
+          <div>
+            <strong><%= item.product_name %></strong>
+            <span>數量 <%= item.quantity %></span>
+          </div>
+          <strong>NT$ <%= item.unit_price * item.quantity %></strong>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+  <a class="button ghost" href="/account">回會員中心</a>
 </section>
 
 <%- include("partials/footer") %>

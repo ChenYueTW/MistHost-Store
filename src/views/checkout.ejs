@@ -1,29 +1,94 @@
 <%- include("partials/header") %>
 
-<section class="checkout-layout">
-  <form class="checkout-form" method="post">
+<section class="checkout-page">
+  <div class="checkout-main">
     <p class="eyebrow">Checkout</p>
-    <h1>建立訂單</h1>
-    <% if (typeof error !== "undefined") { %>
-      <div class="alert"><%= error %></div>
-    <% } %>
-    <label>
-      姓名
-      <input name="name" autocomplete="name" required>
-    </label>
-    <label>
-      Email
-      <input type="email" name="email" autocomplete="email" required>
-    </label>
-    <button class="button primary full" type="submit">前往 ECPay 付款</button>
-  </form>
+    <h1>結帳</h1>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+    <% if (success) { %><div class="notice"><%= success %></div><% } %>
 
-  <aside class="order-summary">
-    <span><%= product.category %></span>
-    <h2><%= product.name %></h2>
-    <p><%= product.description %></p>
-    <div class="price">NT$ <strong><%= product.price %></strong><small>/月</small></div>
+    <div class="checkout-box">
+      <h2>帳戶資訊</h2>
+      <div class="account-summary">
+        <span>已登入帳戶</span>
+        <strong><%= user.name %></strong>
+        <small><%= user.email %></small>
+      </div>
+    </div>
+
+    <div class="checkout-box">
+      <h2>付款方式</h2>
+      <div class="payment-option">
+        <span><%= cart.paymentLabel %></span>
+      </div>
+    </div>
+
+    <form method="post" action="/checkout">
+      <button class="button primary full" type="submit">送出訂單並前往付款</button>
+    </form>
+  </div>
+
+  <aside class="summary-card checkout-summary">
+    <h2>訂單摘要</h2>
+    <div class="cart-items mini">
+      <% cart.items.forEach((item) => { %>
+        <div class="cart-row">
+          <div>
+            <strong><%= item.product.name %></strong>
+            <span>數量 <%= item.quantity %></span>
+          </div>
+          <strong>NT$ <%= item.lineTotal %></strong>
+        </div>
+      <% }) %>
+    </div>
+    <form class="coupon-form" method="post" action="/checkout/coupon">
+      <label>
+        優惠代碼
+        <input name="coupon" value="<%= cart.coupon?.code || '' %>" placeholder="輸入優惠代碼">
+      </label>
+      <button class="button ghost full" type="submit">套用</button>
+    </form>
+    <form class="coupon-form auto-submit-form" method="post" action="/checkout/payment">
+      <label>
+        選擇付款方式
+        <select name="paymentMethod" class="payment-method-select">
+          <% Object.entries(paymentMethods).forEach(([value, method]) => { %>
+            <option value="<%= value %>" <%= cart.paymentMethod === value ? "selected" : "" %>><%= method.label %></option>
+          <% }) %>
+        </select>
+      </label>
+    </form>
+    <div class="summary-line"><span>小計</span><strong id="cart-subtotal">NT$ <%= cart.subtotal %></strong></div>
+    <div class="summary-line"><span>折扣</span><strong id="cart-discount">- NT$ <%= cart.discount %></strong></div>
+    <div class="summary-line"><span>手續費</span><strong id="cart-payment-fee">NT$ <%= cart.paymentFee %></strong></div>
+    <div class="summary-total"><span>應付總額</span><strong id="cart-total">NT$ <%= cart.total %></strong></div>
   </aside>
 </section>
+
+<script>
+  const formatMoney = (amount) => `NT$ ${amount}`;
+  const postForm = async (form) => {
+    const response = await fetch(form.action, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "fetch"
+      },
+      body: new FormData(form)
+    });
+    if (!response.ok) throw new Error("request failed");
+    return response.json();
+  };
+  document.querySelectorAll(".payment-method-select").forEach((select) => {
+    select.addEventListener("change", async () => {
+      const cart = await postForm(select.form);
+      document.getElementById("cart-subtotal").textContent = formatMoney(cart.subtotal);
+      document.getElementById("cart-discount").textContent = `- ${formatMoney(cart.discount)}`;
+      document.getElementById("cart-payment-fee").textContent = formatMoney(cart.paymentFee);
+      document.getElementById("cart-total").textContent = formatMoney(cart.total);
+      document.querySelector(".payment-option span").textContent = cart.paymentLabel;
+    });
+  });
+</script>
 
 <%- include("partials/footer") %>

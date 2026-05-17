@@ -57,3 +57,7 @@ export async function findProduct(id) {
 export async function getActiveProducts() {
   return query("SELECT * FROM products WHERE active = 1 ORDER BY sort_order ASC, id ASC");
 }
+
+export async function getProductsByCategory(category) {
+  return query("SELECT * FROM products WHERE active = 1 AND category = :category ORDER BY sort_order ASC, id ASC", { category });
+}

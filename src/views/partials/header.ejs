@@ -13,9 +13,28 @@
         <span><%= config.site.name %></span>
       </a>
       <nav class="nav">
-        <a href="/#plans">方案</a>
-        <a href="/#network">網路</a>
-        <a href="/#support">支援</a>
+        <div class="dropdown">
+          <button type="button">產品 <span class="nav-arrow">▾</span></button>
+          <div class="dropdown-menu">
+            <% productCategories.forEach((category) => { %>
+              <a href="/products/<%= encodeURIComponent(category) %>"><%= category %></a>
+            <% }) %>
+          </div>
+        </div>
+        <a class="cart-link" href="/cart">購物車<% if (cart.count) { %> (<%= cart.count %>)<% } %></a>
+        <% if (user) { %>
+          <a href="/account">會員中心</a>
+          <% if (user.isAdmin) { %>
+            <a href="/admin">管理員介面</a>
+          <% } %>
+          <form class="nav-form" method="post" action="/logout">
+            <button type="submit">登出</button>
+          </form>
+        <% } else { %>
+          <a href="/login">登入</a>
+          <a class="nav-cta" href="/register">註冊</a>
+        <% } %>
+        <a class="discord-link" href="<%= config.site.discordUrl %>" target="_blank" rel="noreferrer">Discord</a>
       </nav>
     </header>
     <main>

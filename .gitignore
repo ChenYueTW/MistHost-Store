@@ -2,3 +2,7 @@ node_modules/
 npm-debug.log*
 *.log
 .env
+config.json
+data/*.db
+data/*.db-shm
+data/*.db-wal

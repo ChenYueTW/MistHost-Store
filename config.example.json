@@ -1,0 +1,42 @@
+{
+  "port": 3000,
+  "site": {
+    "name": "MistHost Store",
+    "baseUrl": "http://localhost:3000",
+    "currency": "TWD",
+    "discordUrl": "https://discord.gg/example"
+  },
+  "database": {
+    "file": "data/store.db"
+  },
+  "session": {
+    "secret": "replace-with-a-long-random-session-secret"
+  },
+  "pterodactyl": {
+    "panelUrl": "https://panel.example.com",
+    "apiKey": "replace-with-pterodactyl-application-api-key",
+    "defaultUserPassword": "replace-with-default-password",
+    "enabled": false
+  },
+  "ecpay": {
+    "merchantId": "replace-with-merchant-id",
+    "hashKey": "replace-with-hash-key",
+    "hashIV": "replace-with-hash-iv",
+    "isProduction": false,
+    "fees": {
+      "cvs": 0
+    }
+  },
+  "oauth": {
+    "google": {
+      "enabled": false,
+      "clientId": "replace-with-google-client-id",
+      "clientSecret": "replace-with-google-client-secret"
+    },
+    "discord": {
+      "enabled": false,
+      "clientId": "replace-with-discord-client-id",
+      "clientSecret": "replace-with-discord-client-secret"
+    }
+  }
+}

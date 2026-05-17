@@ -1,0 +1,164 @@
+<%- include("partials/header") %>
+
+<section class="cart-layout">
+  <div class="cart-main">
+    <p class="eyebrow">Cart</p>
+    <h1>購物車</h1>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+    <% if (success) { %><div class="notice"><%= success %></div><% } %>
+
+    <% if (cart.items.length === 0) { %>
+      <div class="empty-state">購物車目前沒有商品。</div>
+      <a class="button primary" href="/#plans">瀏覽產品</a>
+    <% } else { %>
+      <div class="cart-items">
+        <% cart.items.forEach((item) => { %>
+          <div class="cart-row cart-row-edit" data-product-id="<%= item.product.id %>">
+            <div>
+              <strong><%= item.product.name %></strong>
+              <span class="cart-product-category"><%= item.product.category %></span>
+            </div>
+            <div class="quantity-control" aria-label="調整數量">
+              <form class="quantity-form" method="post" action="/cart/quantity/<%= item.product.id %>">
+                <input type="hidden" name="action" value="decrement">
+                <button type="submit">-</button>
+              </form>
+              <span class="quantity-value"><%= item.quantity %></span>
+              <form class="quantity-form" method="post" action="/cart/quantity/<%= item.product.id %>">
+                <input type="hidden" name="action" value="increment">
+                <button type="submit">+</button>
+              </form>
+            </div>
+            <strong class="line-total">NT$ <%= item.lineTotal %></strong>
+            <form method="post" action="/cart/remove/<%= item.product.id %>">
+              <button class="danger-button" type="submit">移除</button>
+            </form>
+          </div>
+        <% }) %>
+      </div>
+
+      <% if (!user) { %>
+        <section id="cart-auth" class="cart-auth">
+          <h2>帳號</h2>
+          <div class="auth-choice auth-choice-tabs">
+            <input class="auth-radio" type="radio" id="cart-login-tab" name="cart-auth-mode" checked>
+            <label class="auth-tab" for="cart-login-tab"><span></span>現有帳戶登入</label>
+            <div class="auth-panel">
+              <form class="inline-auth-form" method="post" action="/login">
+                <input type="hidden" name="returnTo" value="/cart">
+                <label>
+                  Email
+                  <input type="email" name="email" autocomplete="email" required>
+                </label>
+                <label>
+                  密碼
+                  <input type="password" name="password" autocomplete="current-password" required>
+                </label>
+                <button class="button primary full" type="submit">登入</button>
+              </form>
+              <div class="oauth-grid">
+                <a class="button ghost full oauth-button" href="/auth/google?returnTo=/cart"><img class="oauth-logo" src="https://cdn.simpleicons.org/google" alt="">Google 登入</a>
+                <a class="button ghost full oauth-button" href="/auth/discord?returnTo=/cart"><img class="oauth-logo" src="https://cdn.simpleicons.org/discord/5865F2" alt="">Discord 登入</a>
+              </div>
+            </div>
+
+            <input class="auth-radio" type="radio" id="cart-register-tab" name="cart-auth-mode">
+            <label class="auth-tab" for="cart-register-tab"><span></span>建立新客戶帳號</label>
+            <div class="auth-panel">
+              <form class="inline-auth-form" method="post" action="/register">
+                <input type="hidden" name="returnTo" value="/cart">
+                <label>
+                  姓名
+                  <input name="name" autocomplete="name" required>
+                </label>
+                <label>
+                  Email
+                  <input type="email" name="email" autocomplete="email" required>
+                </label>
+                <label>
+                  密碼
+                  <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+                </label>
+                <button class="button primary full" type="submit">建立帳號</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      <% } %>
+    <% } %>
+  </div>
+
+  <aside class="summary-card">
+    <h2>訂單摘要</h2>
+    <form class="coupon-form" method="post" action="/cart/coupon">
+      <label>
+        優惠代碼
+        <input name="coupon" value="<%= cart.coupon?.code || '' %>" placeholder="WELCOME10">
+      </label>
+      <button class="button ghost full" type="submit">套用優惠</button>
+    </form>
+    <form class="coupon-form auto-submit-form" method="post" action="/cart/payment">
+      <label>
+        選擇付款方式
+        <select name="paymentMethod" class="payment-method-select">
+          <% Object.entries(paymentMethods).forEach(([value, method]) => { %>
+            <option value="<%= value %>" <%= cart.paymentMethod === value ? "selected" : "" %>><%= method.label %></option>
+          <% }) %>
+        </select>
+      </label>
+    </form>
+    <div class="summary-line"><span>小計</span><strong id="cart-subtotal">NT$ <%= cart.subtotal %></strong></div>
+    <div class="summary-line"><span>折扣</span><strong id="cart-discount">- NT$ <%= cart.discount %></strong></div>
+    <div class="summary-line"><span>手續費</span><strong id="cart-payment-fee">NT$ <%= cart.paymentFee %></strong></div>
+    <div class="summary-total"><span>總計</span><strong id="cart-total">NT$ <%= cart.total %></strong></div>
+    <% if (user) { %>
+      <a class="button primary full" href="/checkout">結帳</a>
+    <% } else { %>
+      <a class="button primary full" href="#cart-auth">結帳</a>
+    <% } %>
+  </aside>
+</section>
+
+<script>
+  const formatMoney = (amount) => `NT$ ${amount}`;
+  const updateCartView = (cart) => {
+    document.getElementById("cart-subtotal").textContent = formatMoney(cart.subtotal);
+    document.getElementById("cart-discount").textContent = `- ${formatMoney(cart.discount)}`;
+    document.getElementById("cart-payment-fee").textContent = formatMoney(cart.paymentFee);
+    document.getElementById("cart-total").textContent = formatMoney(cart.total);
+    for (const item of cart.items) {
+      const row = document.querySelector(`.cart-row[data-product-id="${item.productId}"]`);
+      if (!row) continue;
+      row.querySelector(".quantity-value").textContent = item.quantity;
+      row.querySelector(".line-total").textContent = formatMoney(item.lineTotal);
+    }
+  };
+
+  const postForm = async (form) => {
+    const response = await fetch(form.action, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "fetch"
+      },
+      body: new FormData(form)
+    });
+    if (!response.ok) throw new Error("request failed");
+    return response.json();
+  };
+
+  document.querySelectorAll(".quantity-form").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      updateCartView(await postForm(form));
+    });
+  });
+
+  document.querySelectorAll(".payment-method-select").forEach((select) => {
+    select.addEventListener("change", async () => {
+      updateCartView(await postForm(select.form));
+    });
+  });
+</script>
+
+<%- include("partials/footer") %>
