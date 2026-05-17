@@ -1,0 +1,26 @@
+{
+  "port": 3000,
+  "site": {
+    "name": "MistHost Store",
+    "baseUrl": "http://localhost:3000",
+    "currency": "TWD"
+  },
+  "database": {
+    "file": "data/store.db"
+  },
+  "session": {
+    "secret": "change-this-session-secret"
+  },
+  "pterodactyl": {
+    "panelUrl": "https://panel.example.com",
+    "apiKey": "ptla_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "defaultUserPassword": "ChangeThisAfterLogin123!",
+    "enabled": false
+  },
+  "ecpay": {
+    "merchantId": "3002607",
+    "hashKey": "pwFHCqoQZGmho4w6",
+    "hashIV": "EkRm7iFT261dpevs",
+    "isProduction": false
+  }
+}

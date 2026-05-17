@@ -1,0 +1,18 @@
+<%- include("partials/header") %>
+
+<section class="redirect-box">
+  <h1>正在前往 ECPay</h1>
+  <p>請稍候，系統正在建立付款頁面。</p>
+  <form id="ecpayForm" method="post" action="<%= action %>">
+    <% Object.entries(fields).forEach(([key, value]) => { %>
+      <input type="hidden" name="<%= key %>" value="<%= value %>">
+    <% }) %>
+    <button class="button primary" type="submit">手動前往付款</button>
+  </form>
+</section>
+
+<script>
+  document.getElementById("ecpayForm").submit();
+</script>
+
+<%- include("partials/footer") %>

@@ -1,0 +1,18 @@
+<%- include("partials/header") %>
+
+<section class="redirect-box">
+  <p class="eyebrow">Order</p>
+  <h1>訂單 <%= order.order_no %></h1>
+  <dl class="order-meta">
+    <dt>方案</dt><dd><%= order.product_name %></dd>
+    <dt>金額</dt><dd>NT$ <%= order.amount %></dd>
+    <dt>狀態</dt><dd><%= order.status %></dd>
+    <dt>Email</dt><dd><%= order.email %></dd>
+    <% if (order.provision_message) { %>
+      <dt>開通訊息</dt><dd><%= order.provision_message %></dd>
+    <% } %>
+  </dl>
+  <a class="button ghost" href="/">回首頁</a>
+</section>
+
+<%- include("partials/footer") %>

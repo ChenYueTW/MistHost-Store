@@ -1,0 +1,29 @@
+<%- include("partials/header") %>
+
+<section class="checkout-layout">
+  <form class="checkout-form" method="post">
+    <p class="eyebrow">Checkout</p>
+    <h1>建立訂單</h1>
+    <% if (typeof error !== "undefined") { %>
+      <div class="alert"><%= error %></div>
+    <% } %>
+    <label>
+      姓名
+      <input name="name" autocomplete="name" required>
+    </label>
+    <label>
+      Email
+      <input type="email" name="email" autocomplete="email" required>
+    </label>
+    <button class="button primary full" type="submit">前往 ECPay 付款</button>
+  </form>
+
+  <aside class="order-summary">
+    <span><%= product.category %></span>
+    <h2><%= product.name %></h2>
+    <p><%= product.description %></p>
+    <div class="price">NT$ <strong><%= product.price %></strong><small>/月</small></div>
+  </aside>
+</section>
+
+<%- include("partials/footer") %>

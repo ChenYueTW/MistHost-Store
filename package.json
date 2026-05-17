@@ -1,0 +1,20 @@
+{
+  "name": "misthost-store",
+  "version": "0.1.0",
+  "description": "MistHost game and cloud hosting storefront with Pterodactyl and ECPay integration.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:migrate": "node src/scripts/migrate.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.6.0",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1"
+  }
+}

@@ -1,0 +1,68 @@
+<%- include("partials/header") %>
+
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Taiwan Game & Cloud Hosting</p>
+    <h1>高效能遊戲伺服器與雲端運算租用</h1>
+    <p class="lead">從 Minecraft、Palworld 到網站後端，使用 NVMe 儲存、DDoS 防護與 Pterodactyl 控制台快速部署。</p>
+    <div class="hero-actions">
+      <a class="button primary" href="#plans">選擇方案</a>
+      <a class="button ghost" href="#network">查看規格</a>
+    </div>
+  </div>
+  <div class="status-panel" aria-label="service status">
+    <div>
+      <span class="status-dot"></span>
+      <strong>TW Edge Online</strong>
+    </div>
+    <dl>
+      <dt>Uptime</dt><dd>99.9%</dd>
+      <dt>Deploy</dt><dd>&lt; 5 min</dd>
+      <dt>Panel</dt><dd>Pterodactyl</dd>
+    </dl>
+  </div>
+</section>
+
+<section id="plans" class="section">
+  <div class="section-head">
+    <p class="eyebrow">Plans</p>
+    <h2>選擇要部署的服務</h2>
+  </div>
+  <div class="plans">
+    <% products.forEach((product) => { const specs = JSON.parse(product.specs); %>
+      <article class="plan-card">
+        <div class="plan-top">
+          <span><%= product.category %></span>
+          <h3><%= product.name %></h3>
+          <p><%= product.description %></p>
+        </div>
+        <div class="price">NT$ <strong><%= product.price %></strong><small>/月</small></div>
+        <ul class="specs">
+          <% Object.entries(specs).forEach(([key, value]) => { %>
+            <li><span><%= key %></span><strong><%= value %></strong></li>
+          <% }) %>
+        </ul>
+        <a class="button primary full" href="/checkout/<%= product.id %>">立即租用</a>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<section id="network" class="feature-band">
+  <div>
+    <p class="eyebrow">Infrastructure</p>
+    <h2>為長時間運作設計的主機體驗</h2>
+  </div>
+  <div class="features">
+    <div><strong>NVMe Storage</strong><span>降低世界讀取與服務啟動延遲。</span></div>
+    <div><strong>DDoS Protection</strong><span>針對遊戲與公開服務流量防護。</span></div>
+    <div><strong>Panel Automation</strong><span>付款完成後可自動建立 Pterodactyl 服務。</span></div>
+  </div>
+</section>
+
+<section id="support" class="section compact">
+  <h2>付款與開通</h2>
+  <p>結帳會導向綠界 ECPay 全方位金流，支援信用卡、ATM、超商等付款方式。付款回傳成功後，系統會嘗試透過 Pterodactyl Application API 自動開通。</p>
+</section>
+
+<%- include("partials/footer") %>
