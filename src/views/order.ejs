@@ -8,7 +8,7 @@
     <dt>小計</dt><dd>NT$ <%= order.subtotal || order.amount %></dd>
     <dt>折扣</dt><dd>NT$ <%= order.discount_amount || 0 %></dd>
     <dt>金額</dt><dd>NT$ <%= order.amount %></dd>
-    <dt>狀態</dt><dd><%= order.status %></dd>
+    <dt>狀態</dt><dd><%= statusLabels[order.status] || order.status %></dd>
     <dt>Email</dt><dd><%= order.email %></dd>
     <% if (order.provision_message) { %>
       <dt>開通訊息</dt><dd><%= order.provision_message %></dd>

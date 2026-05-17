@@ -1047,6 +1047,10 @@ dd {
   margin-bottom: 22px;
 }
 
+.product-create-form {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
 .admin-form label {
   margin: 0;
 }
@@ -1204,9 +1208,18 @@ dd {
   align-items: stretch;
 }
 
-.product-admin-row input {
+.product-admin-row form:first-of-type {
+  flex-wrap: wrap;
+}
+
+.product-admin-row input,
+.product-admin-row select {
   width: 110px;
   min-height: 44px;
+}
+
+.product-admin-row select {
+  width: 150px;
 }
 
 @media (max-width: 980px) {

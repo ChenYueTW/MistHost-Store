@@ -16,7 +16,7 @@ import {
 import { config, paths, publicConfig } from "./config.js";
 import { findProduct, getActiveProducts, getProductsByCategory, pool, query } from "./db.js";
 import { paymentForm, verifyCheckMacValue } from "./ecpay.js";
-import { ensurePanelUser, getPanelUserByEmail, provisionServer, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
+import { ensurePanelUser, getPanelUserByEmail, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -30,7 +30,8 @@ const orderStatuses = [
   { value: "pending", label: "未繳費" },
   { value: "paid", label: "已繳費" },
   { value: "manual", label: "開通中" },
-  { value: "provisioned", label: "已完成" }
+  { value: "provisioned", label: "已完成" },
+  { value: "failed", label: "取消" }
 ];
 const statusLabels = Object.fromEntries(orderStatuses.map((status) => [status.value, status.label]));
 
@@ -436,7 +437,7 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 
 app.get("/account", requireAuth, async (req, res, next) => {
   try {
-    const activeTab = req.query.tab === "orders" ? "orders" : "profile";
+    const activeTab = req.query.tab === "profile" ? "profile" : "orders";
     const orders = await query(`
       SELECT o.*, p.name AS product_name
       FROM orders o
@@ -555,6 +556,11 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
   try {
     const name = String(req.body.name || "").trim();
     const slug = String(req.body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-")).replace(/^-|-$/g, "");
+    const specs = {
+      CPU: String(req.body.cpu || "1 核心").trim(),
+      Memory: String(req.body.ram || "1 GB").trim(),
+      Disk: String(req.body.storage || "10 GB NVMe").trim()
+    };
     await query(`
       INSERT INTO products (name, slug, category, description, price, period, specs, provision_config, sort_order)
       VALUES (:name, :slug, :category, :description, :price, 'monthly', :specs, :provisionConfig, 99)
@@ -562,9 +568,9 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
       name,
       slug,
       category: String(req.body.category || "Minecraft伺服器"),
-      description: String(req.body.description || ""),
+      description: String(req.body.description || `${name} hosting plan`),
       price: Math.max(0, Number.parseInt(req.body.price || "0", 10) || 0),
-      specs: JSON.stringify({ CPU: "1 核心", Memory: "1 GB", Disk: "10 GB NVMe" }),
+      specs: JSON.stringify(specs),
       provisionConfig: JSON.stringify({})
     });
     res.redirect("/admin?tab=products");
@@ -575,9 +581,22 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
 
 app.post("/admin/products/:id/price", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    await query("UPDATE products SET price = :price WHERE id = :id", {
+    const specs = {
+      CPU: String(req.body.cpu || "1 核心").trim(),
+      Memory: String(req.body.ram || "1 GB").trim(),
+      Disk: String(req.body.storage || "10 GB NVMe").trim()
+    };
+    await query(`
+      UPDATE products
+      SET price = :price,
+          category = :category,
+          specs = :specs
+      WHERE id = :id
+    `, {
       id: req.params.id,
-      price: Math.max(0, Number.parseInt(req.body.price || "0", 10) || 0)
+      price: Math.max(0, Number.parseInt(req.body.price || "0", 10) || 0),
+      category: String(req.body.category || "Minecraft伺服器"),
+      specs: JSON.stringify(specs)
     });
     res.redirect("/admin?tab=products");
   } catch (error) {
@@ -588,6 +607,16 @@ app.post("/admin/products/:id/price", requireAuth, requireAdmin, async (req, res
 app.post("/admin/products/:id/delete", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     await query("UPDATE products SET active = 0 WHERE id = :id", { id: req.params.id });
+    res.redirect("/admin?tab=products");
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/admin/products/:id/active", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const active = req.body.active === "1" ? 1 : 0;
+    await query("UPDATE products SET active = :active WHERE id = :id", { id: req.params.id, active });
     res.redirect("/admin?tab=products");
   } catch (error) {
     next(error);
@@ -617,7 +646,7 @@ app.post("/payments/ecpay/return", async (req, res, next) => {
     `, { orderNo });
     const order = orderRows[0];
     if (!order) return res.send("1|OK");
-    if (["paid", "provisioned", "manual"].includes(order.status)) return res.send("1|OK");
+    if (["paid", "provisioned", "manual", "failed"].includes(order.status)) return res.send("1|OK");
 
     await query(`
       UPDATE orders
@@ -629,45 +658,7 @@ app.post("/payments/ecpay/return", async (req, res, next) => {
       paymentType: req.body.PaymentType || null
     });
 
-    const items = await query(`
-      SELECT oi.*, p.provision_config
-      FROM order_items oi
-      JOIN products p ON p.id = oi.product_id
-      WHERE oi.order_id = :orderId
-    `, { orderId: order.id });
-    let finalStatus = "provisioned";
-    const messages = [];
-    for (const item of items) {
-      const result = await provisionServer({
-        customer: { id: order.customer_id, email: order.email, name: order.customer_name },
-        product: { id: item.product_id, name: item.product_name, provision_config: item.provision_config },
-        order
-      });
-      if (result.status !== "provisioned") finalStatus = "manual";
-      messages.push(`${item.product_name}: ${result.message || result.status}`);
-      await query(`
-        UPDATE order_items
-        SET provision_status = :status, provision_message = :message, pterodactyl_server_id = :serverId
-        WHERE id = :id
-      `, {
-        id: item.id,
-        status: result.status,
-        message: result.message || null,
-        serverId: result.pterodactylServerId || null
-      });
-    }
-
-    await query(`
-      UPDATE orders
-      SET status = :status, provision_message = :message
-      WHERE id = :id
-    `, {
-      id: order.id,
-      status: finalStatus,
-      message: messages.join("\n") || "Provisioning completed."
-    });
-
-    res.send("1|OK");
+    return res.send("1|OK");
   } catch (error) {
     next(error);
   }
@@ -684,7 +675,7 @@ app.get("/orders/:id", requireAuth, async (req, res, next) => {
     `, { id: req.params.id, customerId: req.session.userId });
     if (!rows[0]) return res.status(404).render("error", { message: "找不到訂單。" });
     const items = await query("SELECT * FROM order_items WHERE order_id = :orderId", { orderId: rows[0].id });
-    res.render("order", { order: rows[0], items });
+    res.render("order", { order: rows[0], items, statusLabels });
   } catch (error) {
     next(error);
   }
@@ -783,7 +774,7 @@ async function adminData(activeTab) {
   return {
     activeTab,
     orders,
-    products,
+    products: products.map((product) => ({ ...product, parsedSpecs: parseProductSpecs(product.specs) })),
     coupons,
     users,
     cvsFee: Number(config.ecpay?.fees?.cvs || 0),
@@ -791,6 +782,14 @@ async function adminData(activeTab) {
     orderStatuses,
     statusLabels
   };
+}
+
+function parseProductSpecs(specs) {
+  try {
+    return JSON.parse(specs || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function cartPayload(cart) {

@@ -77,26 +77,39 @@
 
     <% if (activeTab === 'products') { %>
       <h2>商品管理</h2>
-      <form class="admin-form" method="post" action="/admin/products">
-        <input name="name" placeholder="商品名稱" required>
-        <input name="slug" placeholder="slug">
+      <form class="admin-form product-create-form" method="post" action="/admin/products">
+        <input name="name" placeholder="填入商品名稱" required>
         <select name="category">
           <% productCategories.forEach((category) => { %>
             <option value="<%= category %>"><%= category %></option>
           <% }) %>
         </select>
+        <input name="cpu" placeholder="CPU，例如 2 核心" required>
+        <input name="ram" placeholder="RAM，例如 4 GB" required>
+        <input name="storage" placeholder="儲存空間，例如 40 GB NVMe" required>
         <input type="number" name="price" min="0" placeholder="價格" required>
-        <input name="description" placeholder="描述">
         <button class="button primary" type="submit">新增商品</button>
       </form>
       <div class="admin-table">
         <% products.forEach((product) => { %>
           <div class="admin-row product-admin-row">
             <strong><%= product.name %></strong>
-            <span><%= product.category %> / <%= product.active ? '上架' : '已停用' %></span>
+            <span><%= product.category %> / <%= product.parsedSpecs.CPU || '-' %> / <%= product.parsedSpecs.Memory || '-' %> / <%= product.parsedSpecs.Disk || '-' %></span>
             <form method="post" action="/admin/products/<%= product.id %>/price">
+              <select name="category">
+                <% productCategories.forEach((category) => { %>
+                  <option value="<%= category %>" <%= product.category === category ? 'selected' : '' %>><%= category %></option>
+                <% }) %>
+              </select>
+              <input name="cpu" value="<%= product.parsedSpecs.CPU || '' %>" placeholder="CPU">
+              <input name="ram" value="<%= product.parsedSpecs.Memory || '' %>" placeholder="RAM">
+              <input name="storage" value="<%= product.parsedSpecs.Disk || '' %>" placeholder="儲存空間">
               <input type="number" name="price" min="0" value="<%= product.price %>">
-              <button class="admin-action-button" type="submit">改價</button>
+              <button class="admin-action-button" type="submit">儲存</button>
+            </form>
+            <form method="post" action="/admin/products/<%= product.id %>/active">
+              <input type="hidden" name="active" value="<%= product.active ? '0' : '1' %>">
+              <button class="admin-action-button <%= product.active ? 'danger' : '' %>" type="submit"><%= product.active ? '下架' : '上架' %></button>
             </form>
             <form method="post" action="/admin/products/<%= product.id %>/delete">
               <button class="admin-action-button danger" type="submit">刪除</button>
