@@ -1048,11 +1048,36 @@ dd {
 }
 
 .product-create-form {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 1.8fr) minmax(150px, 1.1fr) repeat(3, minmax(104px, 0.8fr)) minmax(104px, 0.8fr) auto;
+}
+
+.coupon-admin-form {
+  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 1fr) minmax(120px, 0.8fr) auto;
 }
 
 .admin-form label {
   margin: 0;
+}
+
+.unit-input {
+  position: relative;
+  display: block;
+  margin: 0;
+}
+
+.unit-input input {
+  padding-right: 58px;
+}
+
+.unit-input span {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .admin-table {
@@ -1190,6 +1215,108 @@ dd {
   font-weight: 900;
 }
 
+.coupon-admin-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.coupon-admin-row strong {
+  display: inline-grid;
+  justify-self: start;
+  padding: 8px 12px;
+  color: var(--primary-dark);
+  background: #dcecff;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.coupon-admin-row span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.user-open-orders {
+  position: relative;
+  justify-self: end;
+}
+
+.user-open-orders summary {
+  min-width: 132px;
+  padding: 8px 30px 8px 12px;
+  color: var(--primary-dark);
+  background: #dcecff;
+  border-radius: 8px;
+  font-weight: 900;
+  list-style: none;
+  cursor: pointer;
+}
+
+.user-open-orders summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-open-orders summary::after {
+  content: "⌄";
+  position: absolute;
+  right: 12px;
+  transition: transform 160ms ease;
+}
+
+.user-open-orders[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.user-open-orders > div {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  width: 260px;
+  margin-top: 8px;
+  padding: 8px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  animation: adminDropdown 160ms ease-out;
+}
+
+.user-open-orders a {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.user-open-orders a:hover {
+  background: var(--surface-2);
+}
+
+.user-open-orders span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.node-settings-form {
+  gap: 12px;
+}
+
+.node-setting-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 2fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
 .admin-inline-form {
   display: flex;
   gap: 10px;
@@ -1246,7 +1373,7 @@ dd {
 
 .product-admin-controls form:first-child {
   display: grid;
-  grid-template-columns: minmax(150px, 1.4fr) repeat(4, minmax(88px, 1fr)) auto;
+  grid-template-columns: minmax(150px, 1.4fr) repeat(3, minmax(96px, 0.8fr)) minmax(88px, 0.8fr) auto;
 }
 
 .product-admin-controls input,
@@ -1279,6 +1406,9 @@ dd {
   .admin-row,
   .admin-order-row,
   .product-create-form,
+  .coupon-admin-form,
+  .coupon-admin-row,
+  .node-setting-row,
   .product-admin-heading,
   .product-admin-controls,
   .product-admin-controls form:first-child {

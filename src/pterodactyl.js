@@ -42,6 +42,13 @@ export async function getPanelUserByEmail(email) {
   return findPanelUser(api, email);
 }
 
+export async function listPanelNodes() {
+  if (!config.pterodactyl.enabled) return [];
+  const api = client();
+  const { data } = await api.get("/nodes");
+  return (data.data || []).map((node) => node.attributes);
+}
+
 export async function resetPanelUserPassword({ email, password }) {
   if (!config.pterodactyl.enabled) {
     return { status: "disabled", id: null, message: "Pterodactyl sync is disabled in config.json." };

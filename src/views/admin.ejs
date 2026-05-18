@@ -8,6 +8,7 @@
     <a class="<%= activeTab === 'coupons' ? 'active' : '' %>" href="/admin?tab=coupons">優惠代碼</a>
     <a class="<%= activeTab === 'fees' ? 'active' : '' %>" href="/admin?tab=fees">超商手續費</a>
     <a class="<%= activeTab === 'products' ? 'active' : '' %>" href="/admin?tab=products">商品管理</a>
+    <a class="<%= activeTab === 'nodes' ? 'active' : '' %>" href="/admin?tab=nodes">設定節點</a>
     <a class="<%= activeTab === 'users' ? 'active' : '' %>" href="/admin?tab=users">使用者</a>
   </aside>
 
@@ -42,8 +43,8 @@
 
     <% if (activeTab === 'coupons') { %>
       <h2>優惠代碼</h2>
-      <form class="admin-form" method="post" action="/admin/coupons">
-        <input name="code" placeholder="代碼，例如 NEW50" required>
+      <form class="admin-form coupon-admin-form" method="post" action="/admin/coupons">
+        <input name="code" placeholder="代碼" required>
         <select name="type">
           <option value="percent">百分比</option>
           <option value="fixed">固定金額</option>
@@ -53,9 +54,9 @@
       </form>
       <div class="admin-table">
         <% coupons.forEach((coupon) => { %>
-          <div class="admin-row">
+          <div class="coupon-admin-row">
             <strong><%= coupon.code %></strong>
-            <span><%= coupon.type %> / <%= coupon.value %></span>
+            <span><%= coupon.type === 'percent' ? `${coupon.value}% 折扣` : `NT$ ${coupon.value} 折抵` %></span>
             <form method="post" action="/admin/coupons/<%= coupon.id %>/delete">
               <button class="admin-action-button danger" type="submit">刪除</button>
             </form>
@@ -78,21 +79,21 @@
     <% if (activeTab === 'products') { %>
       <h2>商品管理</h2>
       <form class="admin-form product-create-form" method="post" action="/admin/products">
-        <input name="name" placeholder="商品名稱" required>
-        <select name="category">
+        <input class="product-name-input" name="name" placeholder="商品名稱" required>
+        <select name="category" class="product-category-filter">
           <% productCategories.forEach((category) => { %>
             <option value="<%= category %>"><%= category %></option>
           <% }) %>
         </select>
-        <input type="number" name="cpu" min="1" placeholder="CPU" required>
-        <input type="number" name="ram" min="1" placeholder="記憶體" required>
-        <input type="number" name="storage" min="1" placeholder="儲存空間" required>
+        <label class="unit-input"><input type="number" name="cpu" min="1" placeholder="核心" required><span>核心</span></label>
+        <label class="unit-input"><input type="number" name="ram" min="1" placeholder="記憶體" required><span>GB</span></label>
+        <label class="unit-input"><input type="number" name="storage" min="1" placeholder="儲存空間" required><span>GB</span></label>
         <input type="number" name="price" min="0" placeholder="價格" required>
         <button class="button primary" type="submit">新增商品</button>
       </form>
       <div class="admin-table">
         <% products.forEach((product) => { %>
-          <div class="product-admin-row">
+          <div class="product-admin-row" data-category="<%= product.category %>">
             <div class="product-admin-heading">
               <strong><%= product.name %></strong>
               <span><%= product.category %> / <%= product.parsedSpecs.CPU || '-' %> / <%= product.parsedSpecs.Memory || '-' %> / <%= product.parsedSpecs.Disk || '-' %></span>
@@ -105,9 +106,9 @@
                     <option value="<%= category %>" <%= product.category === category ? 'selected' : '' %>><%= category %></option>
                   <% }) %>
                 </select>
-                <input type="number" name="cpu" min="1" value="<%= product.parsedSpecs.cpuValue %>" aria-label="CPU 核心">
-                <input type="number" name="ram" min="1" value="<%= product.parsedSpecs.ramValue %>" aria-label="記憶體 GB">
-                <input type="number" name="storage" min="1" value="<%= product.parsedSpecs.storageValue %>" aria-label="儲存空間 GB">
+                <label class="unit-input"><input type="number" name="cpu" min="1" value="<%= product.parsedSpecs.cpuValue %>" aria-label="CPU 核心"><span>核心</span></label>
+                <label class="unit-input"><input type="number" name="ram" min="1" value="<%= product.parsedSpecs.ramValue %>" aria-label="記憶體 GB"><span>GB</span></label>
+                <label class="unit-input"><input type="number" name="storage" min="1" value="<%= product.parsedSpecs.storageValue %>" aria-label="儲存空間 GB"><span>GB</span></label>
                 <input type="number" name="price" min="0" value="<%= product.price %>" aria-label="價格">
                 <button class="admin-action-button" type="submit">儲存</button>
               </form>
@@ -124,6 +125,28 @@
       </div>
     <% } %>
 
+    <% if (activeTab === 'nodes') { %>
+      <h2>設定節點</h2>
+      <% if (panelNodes.length === 0) { %>
+        <div class="empty-state">目前無法從 Pterodactyl 讀取節點，請確認 Panel API token 權限。</div>
+      <% } %>
+      <form class="admin-table node-settings-form" method="post" action="/admin/nodes">
+        <% productCategories.forEach((category) => { const setting = nodeSettings[category] || {}; %>
+          <div class="node-setting-row">
+            <strong><%= category %></strong>
+            <select name="node_<%= category %>" class="node-select">
+              <option value="">尚未設定</option>
+              <% panelNodes.forEach((node) => { %>
+                <option value="<%= node.id %>" data-name="<%= node.name %>" <%= Number(setting.node_id) === Number(node.id) ? 'selected' : '' %>><%= node.name %></option>
+              <% }) %>
+            </select>
+            <input type="hidden" name="node_name_<%= category %>" value="<%= setting.node_name || '' %>">
+          </div>
+        <% }) %>
+        <button class="button primary" type="submit">儲存節點設定</button>
+      </form>
+    <% } %>
+
     <% if (activeTab === 'users') { %>
       <h2>Store 使用者</h2>
       <div class="admin-table">
@@ -132,7 +155,21 @@
             <strong><%= storeUser.name %></strong>
             <span><%= storeUser.email %></span>
             <span>SQL ID #<%= storeUser.id %></span>
-            <em>未處理 <%= storeUser.open_orders %> 筆</em>
+            <% if (storeUser.openOrderItems.length > 0) { %>
+              <details class="user-open-orders">
+                <summary>未處理 <%= storeUser.openOrderItems.length %> 筆</summary>
+                <div>
+                  <% storeUser.openOrderItems.forEach((order) => { %>
+                    <a href="/orders/<%= order.id %>">
+                      <strong><%= order.order_name %></strong>
+                      <span><%= statusLabels[order.status] || order.status %> / NT$ <%= order.amount %></span>
+                    </a>
+                  <% }) %>
+                </div>
+              </details>
+            <% } else { %>
+              <em>無未處理訂單</em>
+            <% } %>
           </div>
         <% }) %>
       </div>
@@ -146,6 +183,8 @@
     if (!form) return;
     event.preventDefault();
     const submitButton = event.submitter || form.querySelector("button[type='submit']");
+    const selectedProductCategory = document.querySelector(".product-category-filter")?.value || "";
+    syncNodeNames();
     if (submitButton) submitButton.disabled = true;
     try {
       const response = await fetch(form.action, {
@@ -159,12 +198,39 @@
       if (!response.ok || !nextContent) throw new Error("admin update failed");
       document.querySelector(".admin-content").replaceWith(nextContent);
       if (response.url) history.replaceState(null, "", response.url);
+      const nextProductCategory = document.querySelector(".product-category-filter");
+      if (nextProductCategory && selectedProductCategory) nextProductCategory.value = selectedProductCategory;
+      applyProductCategoryFilter();
+      syncNodeNames();
     } catch {
       form.submit();
     } finally {
       if (submitButton) submitButton.disabled = false;
     }
   });
+
+  const applyProductCategoryFilter = () => {
+    const select = document.querySelector(".product-category-filter");
+    if (!select) return;
+    document.querySelectorAll(".product-admin-row[data-category]").forEach((row) => {
+      row.hidden = row.dataset.category !== select.value;
+    });
+  };
+
+  const syncNodeNames = () => {
+    document.querySelectorAll(".node-select").forEach((select) => {
+      const hidden = select.closest(".node-setting-row")?.querySelector("input[type='hidden']");
+      if (hidden) hidden.value = select.selectedOptions[0]?.dataset.name || "";
+    });
+  };
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches(".product-category-filter")) applyProductCategoryFilter();
+    if (event.target.matches(".node-select")) syncNodeNames();
+  });
+
+  applyProductCategoryFilter();
+  syncNodeNames();
 </script>
 
 <%- include("partials/footer") %>

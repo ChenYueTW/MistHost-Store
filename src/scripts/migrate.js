@@ -74,11 +74,25 @@ CREATE TABLE IF NOT EXISTS coupons (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS category_node_settings (
+  category TEXT PRIMARY KEY,
+  node_id INTEGER NULL,
+  node_name TEXT NULL,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TRIGGER IF NOT EXISTS orders_updated_at
 AFTER UPDATE ON orders
 FOR EACH ROW
 BEGIN
   UPDATE orders SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS category_node_settings_updated_at
+AFTER UPDATE ON category_node_settings
+FOR EACH ROW
+BEGIN
+  UPDATE category_node_settings SET updated_at = CURRENT_TIMESTAMP WHERE category = OLD.category;
 END;
 `);
 

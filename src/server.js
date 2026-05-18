@@ -16,7 +16,7 @@ import {
 import { config, paths, publicConfig } from "./config.js";
 import { findProduct, getActiveProducts, getProductsByCategory, pool, query } from "./db.js";
 import { paymentForm, verifyCheckMacValue } from "./ecpay.js";
-import { ensurePanelUser, getPanelUserByEmail, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
+import { ensurePanelUser, getPanelUserByEmail, listPanelNodes, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -543,6 +543,29 @@ app.post("/admin/fees", requireAuth, requireAdmin, async (req, res, next) => {
   }
 });
 
+app.post("/admin/nodes", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    for (const category of productCategories) {
+      const nodeId = Math.max(0, Number.parseInt(req.body[`node_${category}`] || "0", 10) || 0);
+      const nodeName = String(req.body[`node_name_${category}`] || "").trim();
+      await query(`
+        INSERT INTO category_node_settings (category, node_id, node_name)
+        VALUES (:category, :nodeId, :nodeName)
+        ON CONFLICT(category) DO UPDATE SET
+          node_id = excluded.node_id,
+          node_name = excluded.node_name
+      `, {
+        category,
+        nodeId: nodeId || null,
+        nodeName: nodeId ? nodeName : null
+      });
+    }
+    res.redirect("/admin?tab=nodes");
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/admin/orders/:id/status", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const allowed = orderStatuses.map((status) => status.value);
@@ -755,7 +778,7 @@ async function isPanelAdmin(email, req) {
 }
 
 async function adminData(activeTab) {
-  const [orders, products, coupons, users] = await Promise.all([
+  const [orders, products, coupons, users, openOrders, nodeSettings, panelNodes] = await Promise.all([
     query(`
       SELECT o.*,
              c.email,
@@ -782,19 +805,53 @@ async function adminData(activeTab) {
       LEFT JOIN orders o ON o.customer_id = c.id
       GROUP BY c.id
       ORDER BY c.created_at DESC
-    `)
+    `),
+    query(`
+      SELECT o.id,
+             o.order_no,
+             o.customer_id,
+             o.amount,
+             o.status,
+             COALESCE((
+               SELECT GROUP_CONCAT(oi.product_name || ' x' || oi.quantity, ' / ')
+               FROM order_items oi
+               WHERE oi.order_id = o.id
+             ), p.name, o.order_no) AS order_name
+      FROM orders o
+      LEFT JOIN products p ON p.id = o.product_id
+      WHERE o.status IN ('pending', 'paid', 'manual')
+      ORDER BY o.created_at DESC
+    `),
+    query("SELECT * FROM category_node_settings"),
+    activeTab === "nodes" ? getPanelNodesForAdmin() : Promise.resolve([])
   ]);
+  const openOrdersByUser = openOrders.reduce((map, order) => {
+    if (!map[order.customer_id]) map[order.customer_id] = [];
+    map[order.customer_id].push(order);
+    return map;
+  }, {});
+  const nodeSettingsByCategory = Object.fromEntries(nodeSettings.map((setting) => [setting.category, setting]));
   return {
     activeTab,
     orders,
     products: products.map((product) => ({ ...product, parsedSpecs: parseProductSpecs(product.specs) })),
     coupons,
-    users,
+    users: users.map((user) => ({ ...user, openOrderItems: openOrdersByUser[user.id] || [] })),
     cvsFee: Number(config.ecpay?.fees?.cvs || 0),
     productCategories,
+    panelNodes,
+    nodeSettings: nodeSettingsByCategory,
     orderStatuses,
     statusLabels
   };
+}
+
+async function getPanelNodesForAdmin() {
+  try {
+    return await listPanelNodes();
+  } catch {
+    return [];
+  }
 }
 
 function parseProductSpecs(specs) {
