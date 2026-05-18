@@ -508,6 +508,7 @@ app.get("/admin", requireAuth, requireAdmin, async (req, res, next) => {
 
 app.post("/admin/coupons", requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const value = parseNonNegativeNumber(req.body.value);
     await query(`
       INSERT INTO coupons (code, type, value, active)
       VALUES (:code, :type, :value, 1)
@@ -515,7 +516,7 @@ app.post("/admin/coupons", requireAuth, requireAdmin, async (req, res, next) => 
     `, {
       code: String(req.body.code || "").trim().toUpperCase(),
       type: req.body.type === "fixed" ? "fixed" : "percent",
-      value: Math.max(0, Number.parseInt(req.body.value || "0", 10) || 0)
+      value
     });
     res.redirect("/admin?tab=coupons");
   } catch (error) {
@@ -545,9 +546,11 @@ app.post("/admin/fees", requireAuth, requireAdmin, async (req, res, next) => {
 
 app.post("/admin/nodes", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    for (const category of productCategories) {
-      const nodeId = Math.max(0, Number.parseInt(req.body[`node_${category}`] || "0", 10) || 0);
-      const nodeName = String(req.body[`node_name_${category}`] || "").trim();
+    for (let index = 0; index < productCategories.length; index += 1) {
+      const category = String(req.body[`category_${index}`] || productCategories[index]);
+      if (!productCategories.includes(category)) continue;
+      const nodeId = Math.max(0, Number.parseInt(req.body[`node_${index}`] || "0", 10) || 0);
+      const nodeName = String(req.body[`node_name_${index}`] || "").trim();
       await query(`
         INSERT INTO category_node_settings (category, node_id, node_name)
         VALUES (:category, :nodeId, :nodeName)
@@ -866,6 +869,11 @@ function parseProductSpecs(specs) {
   } catch {
     return { cpuValue: 1, ramValue: 1, storageValue: 10 };
   }
+}
+
+function parseNonNegativeNumber(value) {
+  const match = String(value || "").match(/\d+/);
+  return match ? Math.max(0, Number.parseInt(match[0], 10) || 0) : 0;
 }
 
 function cartPayload(cart) {

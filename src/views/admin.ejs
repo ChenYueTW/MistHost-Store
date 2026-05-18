@@ -44,12 +44,12 @@
     <% if (activeTab === 'coupons') { %>
       <h2>優惠代碼</h2>
       <form class="admin-form coupon-admin-form" method="post" action="/admin/coupons">
-        <input name="code" placeholder="代碼" required>
+        <input class="coupon-code-input" name="code" placeholder="代碼" required>
         <select name="type">
           <option value="percent">百分比</option>
           <option value="fixed">固定金額</option>
         </select>
-        <input type="number" name="value" min="0" placeholder="數值" required>
+        <input name="value" placeholder="折扣" required>
         <button class="button primary" type="submit">新增/更新</button>
       </form>
       <div class="admin-table">
@@ -93,7 +93,7 @@
       </form>
       <div class="admin-table">
         <% products.forEach((product) => { %>
-          <div class="product-admin-row" data-category="<%= product.category %>">
+          <div class="product-admin-row" data-category="<%= product.category %>" <%= product.category !== productCategories[0] ? 'hidden' : '' %>>
             <div class="product-admin-heading">
               <strong><%= product.name %></strong>
               <span><%= product.category %> / <%= product.parsedSpecs.CPU || '-' %> / <%= product.parsedSpecs.Memory || '-' %> / <%= product.parsedSpecs.Disk || '-' %></span>
@@ -131,16 +131,17 @@
         <div class="empty-state">目前無法從 Pterodactyl 讀取節點，請確認 Panel API token 權限。</div>
       <% } %>
       <form class="admin-table node-settings-form" method="post" action="/admin/nodes">
-        <% productCategories.forEach((category) => { const setting = nodeSettings[category] || {}; %>
+        <% productCategories.forEach((category, index) => { const setting = nodeSettings[category] || {}; %>
           <div class="node-setting-row">
             <strong><%= category %></strong>
-            <select name="node_<%= category %>" class="node-select">
+            <input type="hidden" name="category_<%= index %>" value="<%= category %>">
+            <select name="node_<%= index %>" class="node-select">
               <option value="">尚未設定</option>
               <% panelNodes.forEach((node) => { %>
                 <option value="<%= node.id %>" data-name="<%= node.name %>" <%= Number(setting.node_id) === Number(node.id) ? 'selected' : '' %>><%= node.name %></option>
               <% }) %>
             </select>
-            <input type="hidden" name="node_name_<%= category %>" value="<%= setting.node_name || '' %>">
+            <input type="hidden" name="node_name_<%= index %>" value="<%= setting.node_name || '' %>">
           </div>
         <% }) %>
         <button class="button primary" type="submit">儲存節點設定</button>
@@ -213,7 +214,7 @@
     const select = document.querySelector(".product-category-filter");
     if (!select) return;
     document.querySelectorAll(".product-admin-row[data-category]").forEach((row) => {
-      row.hidden = row.dataset.category !== select.value;
+      row.hidden = row.getAttribute("data-category") !== select.value;
     });
   };
 

@@ -1032,6 +1032,7 @@ dd {
 
 .admin-content button {
   cursor: pointer;
+  white-space: nowrap;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
@@ -1048,11 +1049,20 @@ dd {
 }
 
 .product-create-form {
-  grid-template-columns: minmax(220px, 1.8fr) minmax(150px, 1.1fr) repeat(3, minmax(104px, 0.8fr)) minmax(104px, 0.8fr) auto;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.product-name-input {
+  grid-column: span 2;
 }
 
 .coupon-admin-form {
-  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 1fr) minmax(120px, 0.8fr) auto;
+  grid-template-columns: minmax(260px, 1.8fr) minmax(150px, 1fr) minmax(140px, 0.8fr) auto;
+}
+
+.coupon-code-input {
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .admin-form label {
@@ -1083,6 +1093,10 @@ dd {
 .admin-table {
   display: grid;
   gap: 10px;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 .admin-order-row {
@@ -1373,7 +1387,7 @@ dd {
 
 .product-admin-controls form:first-child {
   display: grid;
-  grid-template-columns: minmax(150px, 1.4fr) repeat(3, minmax(96px, 0.8fr)) minmax(88px, 0.8fr) auto;
+  grid-template-columns: minmax(150px, 1.2fr) repeat(3, minmax(104px, 0.8fr)) minmax(96px, 0.8fr) minmax(76px, auto);
 }
 
 .product-admin-controls input,
@@ -1406,6 +1420,7 @@ dd {
   .admin-row,
   .admin-order-row,
   .product-create-form,
+  .product-name-input,
   .coupon-admin-form,
   .coupon-admin-row,
   .node-setting-row,
@@ -1426,6 +1441,10 @@ dd {
   .features,
   .oauth-grid {
     flex-direction: column;
+  }
+
+  .product-name-input {
+    grid-column: auto;
   }
 }
 
