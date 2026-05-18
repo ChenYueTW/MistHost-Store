@@ -508,17 +508,19 @@ app.get("/admin", requireAuth, requireAdmin, async (req, res, next) => {
 
 app.post("/admin/coupons", requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const code = String(req.body.code || "").trim().toUpperCase();
+    if (!code) return finishAdminMutation(req, res, "coupons");
     const value = parseNonNegativeNumber(req.body.value);
     await query(`
       INSERT INTO coupons (code, type, value, active)
       VALUES (:code, :type, :value, 1)
       ON CONFLICT(code) DO UPDATE SET type = excluded.type, value = excluded.value, active = 1
     `, {
-      code: String(req.body.code || "").trim().toUpperCase(),
+      code,
       type: req.body.type === "fixed" ? "fixed" : "percent",
       value
     });
-    res.redirect("/admin?tab=coupons");
+    await finishAdminMutation(req, res, "coupons");
   } catch (error) {
     next(error);
   }
@@ -527,7 +529,7 @@ app.post("/admin/coupons", requireAuth, requireAdmin, async (req, res, next) => 
 app.post("/admin/coupons/:id/delete", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     await query("DELETE FROM coupons WHERE id = :id", { id: req.params.id });
-    res.redirect("/admin?tab=coupons");
+    await finishAdminMutation(req, res, "coupons");
   } catch (error) {
     next(error);
   }
@@ -538,7 +540,7 @@ app.post("/admin/fees", requireAuth, requireAdmin, async (req, res, next) => {
     config.ecpay.fees = config.ecpay.fees || {};
     config.ecpay.fees.cvs = Math.max(0, Number.parseInt(req.body.cvsFee || "0", 10) || 0);
     fs.writeFileSync(paths.configPath, `${JSON.stringify(config, null, 2)}\n`);
-    res.redirect("/admin?tab=fees");
+    await finishAdminMutation(req, res, "fees");
   } catch (error) {
     next(error);
   }
@@ -563,7 +565,7 @@ app.post("/admin/nodes", requireAuth, requireAdmin, async (req, res, next) => {
         nodeName: nodeId ? nodeName : null
       });
     }
-    res.redirect("/admin?tab=nodes");
+    await finishAdminMutation(req, res, "nodes");
   } catch (error) {
     next(error);
   }
@@ -574,7 +576,7 @@ app.post("/admin/orders/:id/status", requireAuth, requireAdmin, async (req, res,
     const allowed = orderStatuses.map((status) => status.value);
     const status = allowed.includes(req.body.status) ? req.body.status : "pending";
     await query("UPDATE orders SET status = :status WHERE id = :id", { id: req.params.id, status });
-    res.redirect("/admin?tab=orders");
+    await finishAdminMutation(req, res, "orders");
   } catch (error) {
     next(error);
   }
@@ -604,7 +606,7 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
       specs: JSON.stringify(specs),
       provisionConfig: JSON.stringify({})
     });
-    res.redirect("/admin?tab=products");
+    await finishAdminMutation(req, res, "products");
   } catch (error) {
     next(error);
   }
@@ -623,16 +625,14 @@ app.post("/admin/products/:id/price", requireAuth, requireAdmin, async (req, res
     await query(`
       UPDATE products
       SET price = :price,
-          category = :category,
           specs = :specs
       WHERE id = :id
     `, {
       id: req.params.id,
       price: Math.max(0, Number.parseInt(req.body.price || "0", 10) || 0),
-      category: String(req.body.category || "Minecraft伺服器"),
       specs: JSON.stringify(specs)
     });
-    res.redirect("/admin?tab=products");
+    await finishAdminMutation(req, res, "products");
   } catch (error) {
     next(error);
   }
@@ -641,7 +641,7 @@ app.post("/admin/products/:id/price", requireAuth, requireAdmin, async (req, res
 app.post("/admin/products/:id/delete", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     await query("UPDATE products SET active = 0 WHERE id = :id", { id: req.params.id });
-    res.redirect("/admin?tab=products");
+    await finishAdminMutation(req, res, "products");
   } catch (error) {
     next(error);
   }
@@ -651,7 +651,7 @@ app.post("/admin/products/:id/active", requireAuth, requireAdmin, async (req, re
   try {
     const active = req.body.active === "1" ? 1 : 0;
     await query("UPDATE products SET active = :active WHERE id = :id", { id: req.params.id, active });
-    res.redirect("/admin?tab=products");
+    await finishAdminMutation(req, res, "products");
   } catch (error) {
     next(error);
   }
@@ -847,6 +847,13 @@ async function adminData(activeTab) {
     orderStatuses,
     statusLabels
   };
+}
+
+async function finishAdminMutation(req, res, tab) {
+  if (req.get("X-Requested-With") === "fetch") {
+    return res.render("admin", await adminData(tab));
+  }
+  return res.redirect(`/admin?tab=${tab}`);
 }
 
 async function getPanelNodesForAdmin() {

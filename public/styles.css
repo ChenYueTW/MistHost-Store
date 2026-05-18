@@ -1049,11 +1049,22 @@ dd {
 }
 
 .product-create-form {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  align-items: stretch;
 }
 
-.product-name-input {
-  grid-column: span 2;
+.product-create-top,
+.product-create-bottom {
+  display: grid;
+  gap: 12px;
+}
+
+.product-create-top {
+  grid-template-columns: minmax(260px, 2fr) minmax(170px, 1fr);
+}
+
+.product-create-bottom {
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
 }
 
 .coupon-admin-form {
@@ -1374,7 +1385,7 @@ dd {
 
 .product-admin-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(84px, auto);
   gap: 10px;
   align-items: start;
 }
@@ -1387,7 +1398,7 @@ dd {
 
 .product-admin-controls form:first-child {
   display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) repeat(3, minmax(104px, 0.8fr)) minmax(96px, 0.8fr) minmax(76px, auto);
+  grid-template-columns: repeat(3, minmax(108px, 1fr)) minmax(96px, 0.9fr) minmax(84px, auto);
 }
 
 .product-admin-controls input,
@@ -1420,7 +1431,8 @@ dd {
   .admin-row,
   .admin-order-row,
   .product-create-form,
-  .product-name-input,
+  .product-create-top,
+  .product-create-bottom,
   .coupon-admin-form,
   .coupon-admin-row,
   .node-setting-row,
@@ -1443,9 +1455,6 @@ dd {
     flex-direction: column;
   }
 
-  .product-name-input {
-    grid-column: auto;
-  }
 }
 
 @media (max-width: 700px) {

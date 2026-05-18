@@ -79,17 +79,21 @@
     <% if (activeTab === 'products') { %>
       <h2>商品管理</h2>
       <form class="admin-form product-create-form" method="post" action="/admin/products">
-        <input class="product-name-input" name="name" placeholder="商品名稱" required>
-        <select name="category" class="product-category-filter">
-          <% productCategories.forEach((category) => { %>
-            <option value="<%= category %>"><%= category %></option>
-          <% }) %>
-        </select>
-        <label class="unit-input"><input type="number" name="cpu" min="1" placeholder="核心" required><span>核心</span></label>
-        <label class="unit-input"><input type="number" name="ram" min="1" placeholder="記憶體" required><span>GB</span></label>
-        <label class="unit-input"><input type="number" name="storage" min="1" placeholder="儲存空間" required><span>GB</span></label>
-        <input type="number" name="price" min="0" placeholder="價格" required>
-        <button class="button primary" type="submit">新增商品</button>
+        <div class="product-create-top">
+          <input class="product-name-input" name="name" placeholder="商品名稱" required>
+          <select name="category" class="product-category-filter">
+            <% productCategories.forEach((category) => { %>
+              <option value="<%= category %>"><%= category %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="product-create-bottom">
+          <label class="unit-input"><input type="number" name="cpu" min="1" placeholder="核心" required><span>核心</span></label>
+          <label class="unit-input"><input type="number" name="ram" min="1" placeholder="記憶體" required><span>GB</span></label>
+          <label class="unit-input"><input type="number" name="storage" min="1" placeholder="儲存空間" required><span>GB</span></label>
+          <input type="number" name="price" min="0" placeholder="價格" required>
+          <button class="button primary" type="submit">新增商品</button>
+        </div>
       </form>
       <div class="admin-table">
         <% products.forEach((product) => { %>
@@ -101,11 +105,6 @@
             </div>
             <div class="product-admin-controls">
               <form method="post" action="/admin/products/<%= product.id %>/price">
-                <select name="category">
-                  <% productCategories.forEach((category) => { %>
-                    <option value="<%= category %>" <%= product.category === category ? 'selected' : '' %>><%= category %></option>
-                  <% }) %>
-                </select>
                 <label class="unit-input"><input type="number" name="cpu" min="1" value="<%= product.parsedSpecs.cpuValue %>" aria-label="CPU 核心"><span>核心</span></label>
                 <label class="unit-input"><input type="number" name="ram" min="1" value="<%= product.parsedSpecs.ramValue %>" aria-label="記憶體 GB"><span>GB</span></label>
                 <label class="unit-input"><input type="number" name="storage" min="1" value="<%= product.parsedSpecs.storageValue %>" aria-label="儲存空間 GB"><span>GB</span></label>
@@ -190,15 +189,17 @@
     try {
       const response = await fetch(form.action, {
         method: form.method || "POST",
-        headers: { "X-Requested-With": "fetch" },
-        body: new FormData(form)
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "fetch"
+        },
+        body: new URLSearchParams(new FormData(form))
       });
       const html = await response.text();
       const doc = new DOMParser().parseFromString(html, "text/html");
       const nextContent = doc.querySelector(".admin-content");
       if (!response.ok || !nextContent) throw new Error("admin update failed");
       document.querySelector(".admin-content").replaceWith(nextContent);
-      if (response.url) history.replaceState(null, "", response.url);
       const nextProductCategory = document.querySelector(".product-category-filter");
       if (nextProductCategory && selectedProductCategory) nextProductCategory.value = selectedProductCategory;
       applyProductCategoryFilter();
@@ -220,7 +221,7 @@
 
   const syncNodeNames = () => {
     document.querySelectorAll(".node-select").forEach((select) => {
-      const hidden = select.closest(".node-setting-row")?.querySelector("input[type='hidden']");
+      const hidden = select.closest(".node-setting-row")?.querySelector("input[name^='node_name_']");
       if (hidden) hidden.value = select.selectedOptions[0]?.dataset.name || "";
     });
   };
