@@ -20,6 +20,7 @@ import { ensurePanelUser, getPanelUserByEmail, resetPanelUserPassword, verifyPan
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const sessionMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 const paymentMethods = {
   cvs_711: { label: "7-11 超商代碼", choosePayment: "CVS", chooseSubPayment: "IBON", feeKey: "cvs" },
   cvs_family: { label: "全家超商代碼", choosePayment: "CVS", chooseSubPayment: "FAMILY", feeKey: "cvs" },
@@ -44,7 +45,8 @@ app.use(session({
   secret: config.session.secret,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: "lax" }
+  rolling: true,
+  cookie: { httpOnly: true, sameSite: "lax", maxAge: sessionMaxAgeMs }
 }));
 
 app.use(async (req, res, next) => {
@@ -556,10 +558,13 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
   try {
     const name = String(req.body.name || "").trim();
     const slug = String(req.body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-")).replace(/^-|-$/g, "");
+    const cpu = Math.max(1, Number.parseInt(req.body.cpu || "1", 10) || 1);
+    const ram = Math.max(1, Number.parseInt(req.body.ram || "1", 10) || 1);
+    const storage = Math.max(1, Number.parseInt(req.body.storage || "10", 10) || 10);
     const specs = {
-      CPU: String(req.body.cpu || "1 核心").trim(),
-      Memory: String(req.body.ram || "1 GB").trim(),
-      Disk: String(req.body.storage || "10 GB NVMe").trim()
+      CPU: `${cpu} 核心`,
+      Memory: `${ram} GB`,
+      Disk: `${storage} GB NVMe`
     };
     await query(`
       INSERT INTO products (name, slug, category, description, price, period, specs, provision_config, sort_order)
@@ -581,10 +586,13 @@ app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) =>
 
 app.post("/admin/products/:id/price", requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const cpu = Math.max(1, Number.parseInt(req.body.cpu || "1", 10) || 1);
+    const ram = Math.max(1, Number.parseInt(req.body.ram || "1", 10) || 1);
+    const storage = Math.max(1, Number.parseInt(req.body.storage || "10", 10) || 10);
     const specs = {
-      CPU: String(req.body.cpu || "1 核心").trim(),
-      Memory: String(req.body.ram || "1 GB").trim(),
-      Disk: String(req.body.storage || "10 GB NVMe").trim()
+      CPU: `${cpu} 核心`,
+      Memory: `${ram} GB`,
+      Disk: `${storage} GB NVMe`
     };
     await query(`
       UPDATE products
@@ -667,12 +675,17 @@ app.post("/payments/ecpay/return", async (req, res, next) => {
 app.get("/orders/:id", requireAuth, async (req, res, next) => {
   try {
     const rows = await query(`
-      SELECT o.*, p.name AS product_name, c.email, c.name AS customer_name
+      SELECT o.*, COALESCE(p.name, (
+        SELECT oi.product_name
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+        LIMIT 1
+      ), '已刪除商品') AS product_name, c.email, c.name AS customer_name
       FROM orders o
-      JOIN products p ON p.id = o.product_id
+      LEFT JOIN products p ON p.id = o.product_id
       JOIN customers c ON c.id = o.customer_id
-      WHERE o.id = :id AND o.customer_id = :customerId
-    `, { id: req.params.id, customerId: req.session.userId });
+      WHERE o.id = :id AND (o.customer_id = :customerId OR :isAdmin = 1)
+    `, { id: req.params.id, customerId: req.session.userId, isAdmin: res.locals.user?.isAdmin ? 1 : 0 });
     if (!rows[0]) return res.status(404).render("error", { message: "找不到訂單。" });
     const items = await query("SELECT * FROM order_items WHERE order_id = :orderId", { orderId: rows[0].id });
     res.render("order", { order: rows[0], items, statusLabels });
@@ -786,9 +799,15 @@ async function adminData(activeTab) {
 
 function parseProductSpecs(specs) {
   try {
-    return JSON.parse(specs || "{}");
+    const parsed = JSON.parse(specs || "{}");
+    return {
+      ...parsed,
+      cpuValue: Math.max(1, Number.parseInt(parsed.CPU || "1", 10) || 1),
+      ramValue: Math.max(1, Number.parseInt(parsed.Memory || "1", 10) || 1),
+      storageValue: Math.max(1, Number.parseInt(parsed.Disk || "10", 10) || 10)
+    };
   } catch {
-    return {};
+    return { cpuValue: 1, ramValue: 1, storageValue: 10 };
   }
 }
 
