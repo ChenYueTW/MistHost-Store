@@ -255,10 +255,13 @@ h3 {
 }
 
 .client-card,
+.hero-service-panel,
 .plan-card,
 .checkout-form,
 .order-summary,
 .redirect-box,
+.order-detail-main,
+.server-status-card,
 .auth-card,
 .account-panel,
 .orders-panel,
@@ -277,6 +280,64 @@ h3 {
   display: grid;
   gap: 10px;
   padding: 22px;
+  color: var(--ink);
+}
+
+.hero-service-panel {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  color: var(--ink);
+}
+
+.service-panel-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.service-panel-head small {
+  grid-column: 2;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.service-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.service-metrics div,
+.service-routes a {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.service-metrics strong {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.service-metrics span,
+.service-routes span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.service-routes {
+  display: grid;
+  gap: 10px;
+}
+
+.service-routes strong {
   color: var(--ink);
 }
 
@@ -621,6 +682,75 @@ input:focus {
 .redirect-box {
   max-width: 760px;
   margin: 80px auto;
+}
+
+.order-detail-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+  padding: 86px 5vw;
+}
+
+.order-detail-main,
+.server-status-card {
+  padding: 28px;
+}
+
+.order-detail-meta {
+  margin: 24px 0;
+}
+
+.server-status-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.server-status-card p:last-child {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.server-icon {
+  display: grid;
+  gap: 8px;
+  width: 104px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.server-icon span {
+  position: relative;
+  height: 18px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.server-icon span::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.animated-back {
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.animated-back:hover {
+  transform: translateX(-4px);
+  border-color: var(--primary);
+  background: var(--surface-2);
 }
 
 .coupon-form {
@@ -1418,6 +1548,7 @@ dd {
   .feature-band,
   .checkout-layout,
   .account-layout,
+  .order-detail-shell,
   .configure-layout,
   .cart-layout,
   .checkout-page,

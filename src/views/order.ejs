@@ -1,33 +1,44 @@
 <%- include("partials/header") %>
 
-<section class="redirect-box">
-  <p class="eyebrow">Order</p>
-  <h1>訂單 <%= order.order_no %></h1>
-  <dl class="order-meta">
-    <dt>方案</dt><dd><%= order.product_name %></dd>
-    <dt>小計</dt><dd>NT$ <%= order.subtotal || order.amount %></dd>
-    <dt>折扣</dt><dd>NT$ <%= order.discount_amount || 0 %></dd>
-    <dt>金額</dt><dd>NT$ <%= order.amount %></dd>
-    <dt>狀態</dt><dd><%= statusLabels[order.status] || order.status %></dd>
-    <dt>Email</dt><dd><%= order.email %></dd>
-    <% if (order.provision_message) { %>
-      <dt>開通訊息</dt><dd><%= order.provision_message %></dd>
-    <% } %>
-  </dl>
-  <% if (items && items.length) { %>
-    <div class="cart-items mini">
-      <% items.forEach((item) => { %>
-        <div class="cart-row">
-          <div>
-            <strong><%= item.product_name %></strong>
-            <span>數量 <%= item.quantity %></span>
+<section class="order-detail-shell">
+  <div class="order-detail-main">
+    <p class="eyebrow">Order</p>
+    <h1>訂單 <%= order.order_no %></h1>
+    <dl class="order-meta order-detail-meta">
+      <dt>方案</dt><dd><%= order.product_name %></dd>
+      <dt>小計</dt><dd>NT$ <%= order.subtotal || order.amount %></dd>
+      <dt>折扣</dt><dd>NT$ <%= order.discount_amount || 0 %></dd>
+      <dt>金額</dt><dd>NT$ <%= order.amount %></dd>
+      <dt>狀態</dt><dd><%= statusLabels[order.status] || order.status %></dd>
+      <dt>Email</dt><dd><%= order.email %></dd>
+    </dl>
+    <% if (items && items.length) { %>
+      <div class="cart-items mini">
+        <% items.forEach((item) => { %>
+          <div class="cart-row">
+            <div>
+              <strong><%= item.product_name %></strong>
+              <span>數量 <%= item.quantity %></span>
+            </div>
+            <strong>NT$ <%= item.unit_price * item.quantity %></strong>
           </div>
-          <strong>NT$ <%= item.unit_price * item.quantity %></strong>
-        </div>
-      <% }) %>
+        <% }) %>
+      </div>
+    <% } %>
+    <a class="button ghost animated-back" href="/account">回會員中心</a>
+  </div>
+
+  <aside class="server-status-card">
+    <div class="server-icon" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
     </div>
-  <% } %>
-  <a class="button ghost" href="/account">回會員中心</a>
+    <% const isProvisioned = order.status === 'provisioned'; %>
+    <p class="eyebrow">Server</p>
+    <h2><%= isProvisioned ? '已開通' : '開通中' %></h2>
+    <p><%= isProvisioned ? '服務已完成開通，可前往控制台管理。' : '付款確認後，管理員會處理伺服器開通。' %></p>
+  </aside>
 </section>
 
 <%- include("partials/footer") %>

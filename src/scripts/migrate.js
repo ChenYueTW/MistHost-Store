@@ -206,6 +206,50 @@ const productUpdates = [
 const updateProduct = db.prepare("UPDATE products SET name = :name, category = :category, specs = :specs, description = :description WHERE slug = :slug");
 for (const product of productUpdates) updateProduct.run(product);
 
+const minecraftPlans = Array.from({ length: 16 }, (_, index) => {
+  const core = index + 1;
+  const memory = core * 2;
+  const disk = core === 1 ? 10 : core === 2 ? 20 : Math.min(60, 15 + core * 5);
+  const slug = core === 1 ? "game-starter" : core === 2 ? "game-pro" : `minecraft-${core}c-${memory}g-${disk}g`;
+  return {
+    name: `Minecraft ${core}C${memory}G${disk}G`,
+    slug,
+    category: "Minecraft伺服器",
+    description: `${core} 核心、${memory} GB 記憶體、${disk} GB NVMe 儲存空間的 Minecraft 伺服器方案。`,
+    price: core * 100,
+    period: "monthly",
+    specs: JSON.stringify({ CPU: `${core} 核心`, Memory: `${memory} GB`, Disk: `${disk} GB NVMe` }),
+    provision_config: JSON.stringify({
+      limits: { memory: memory * 1024, swap: 0, disk: disk * 1024, io: 500, cpu: core * 100 },
+      feature_limits: { databases: Math.max(1, Math.ceil(core / 4)), backups: Math.max(1, Math.ceil(core / 2)), allocations: 1 }
+    }),
+    sort_order: core
+  };
+});
+
+const upsertMinecraftPlan = db.prepare(`
+  INSERT INTO products (name, slug, category, description, price, period, specs, provision_config, active, sort_order)
+  VALUES (:name, :slug, :category, :description, :price, :period, :specs, :provision_config, 1, :sort_order)
+  ON CONFLICT(slug) DO UPDATE SET
+    name = excluded.name,
+    category = excluded.category,
+    description = excluded.description,
+    price = excluded.price,
+    period = excluded.period,
+    specs = excluded.specs,
+    provision_config = excluded.provision_config,
+    active = 1,
+    sort_order = excluded.sort_order
+`);
+const minecraftPlanSlugs = minecraftPlans.map((plan) => plan.slug);
+for (const plan of minecraftPlans) upsertMinecraftPlan.run(plan);
+db.prepare(`
+  UPDATE products
+  SET active = 0
+  WHERE category = 'Minecraft伺服器'
+    AND slug NOT IN (${minecraftPlanSlugs.map(() => "?").join(",")})
+`).run(...minecraftPlanSlugs);
+
 const insertCoupon = db.prepare(`
   INSERT INTO coupons (code, type, value, active)
   VALUES (:code, :type, :value, 1)

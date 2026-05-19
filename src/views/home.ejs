@@ -4,29 +4,35 @@
   <div class="hero-copy">
     <p class="eyebrow">Hosting Client Portal</p>
     <h1>遊戲伺服器與 Discord Bot 主機租用</h1>
-    <p class="lead">選擇產品、調整方案、加入購物車，再用 ECPay 完成付款。系統會把帳戶與訂單集中到會員中心，並可同步 Pterodactyl Panel。</p>
+    <p class="lead">從小型好友服到大型社群伺服器，選擇規格後即可建立訂單。會員中心會集中管理付款、開通進度與服務狀態。</p>
     <div class="hero-actions">
-      <a class="button primary" href="#plans">瀏覽產品</a>
-      <a class="button ghost" href="/cart">查看購物車</a>
+      <a class="button primary" href="#plans">查看方案</a>
+      <a class="button ghost" href="/products/<%= encodeURIComponent('Minecraft伺服器') %>">Minecraft 方案</a>
     </div>
   </div>
-  <aside class="client-card">
-    <div class="client-card-head">
+  <aside class="hero-service-panel">
+    <div class="service-panel-head">
       <span class="status-dot"></span>
-      <strong>產品分類</strong>
+      <strong>即時部署架構</strong>
+      <small>Pterodactyl Panel</small>
     </div>
-    <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>">Minecraft伺服器</a>
-    <a href="/products/<%= encodeURIComponent('Discord Bot') %>">Discord Bot</a>
-    <a href="/cart">購物車與優惠代碼</a>
-    <a href="/checkout">前往結帳</a>
+    <div class="service-metrics">
+      <div><strong>1-16C</strong><span>CPU 核心</span></div>
+      <div><strong>2-32G</strong><span>記憶體</span></div>
+      <div><strong>10-60G</strong><span>NVMe 儲存</span></div>
+    </div>
+    <div class="service-routes">
+      <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>"><strong>Minecraft伺服器</strong><span>生存、模組、社群伺服器</span></a>
+      <a href="/products/<%= encodeURIComponent('Discord Bot') %>"><strong>Discord Bot</strong><span>機器人、API、常駐工具服務</span></a>
+    </div>
   </aside>
 </section>
 
 <section class="quick-actions">
   <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>"><strong>Minecraft伺服器</strong><span>生存、模組、社群伺服器</span></a>
   <a href="/products/<%= encodeURIComponent('Discord Bot') %>"><strong>Discord Bot</strong><span>Node.js、Python、工具服務</span></a>
-  <a href="/cart"><strong>優惠代碼</strong><span>在購物車或結帳套用折扣</span></a>
-  <a href="/account"><strong>會員中心</strong><span>查看訂單與服務狀態</span></a>
+  <a href="#plans"><strong>彈性規格</strong><span>依核心、記憶體與儲存空間選擇</span></a>
+  <a href="/account"><strong>會員中心</strong><span>查看付款與開通進度</span></a>
 </section>
 
 <section id="plans" class="section">
