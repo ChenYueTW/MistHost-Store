@@ -6,8 +6,8 @@
     <h1>遊戲伺服器與 Discord Bot 主機租用</h1>
     <p class="lead">從小型好友服到大型社群伺服器，選擇規格後即可建立訂單。會員中心會集中管理付款、開通進度與服務狀態。</p>
     <div class="hero-actions">
-      <a class="button primary" href="#plans">查看方案</a>
-      <a class="button ghost" href="/products/<%= encodeURIComponent('Minecraft伺服器') %>">Minecraft 方案</a>
+      <a class="button primary" href="/products/<%= encodeURIComponent('Minecraft伺服器') %>">Minecraft伺服器</a>
+      <a class="button ghost" href="/products/<%= encodeURIComponent('Discord Bot') %>">Discord Bot</a>
     </div>
   </div>
   <aside class="hero-service-panel">
@@ -31,36 +31,8 @@
 <section class="quick-actions">
   <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>"><strong>Minecraft伺服器</strong><span>生存、模組、社群伺服器</span></a>
   <a href="/products/<%= encodeURIComponent('Discord Bot') %>"><strong>Discord Bot</strong><span>Node.js、Python、工具服務</span></a>
-  <a href="#plans"><strong>彈性規格</strong><span>依核心、記憶體與儲存空間選擇</span></a>
+  <a href="/products/<%= encodeURIComponent('Minecraft伺服器') %>"><strong>彈性規格</strong><span>依核心、記憶體與儲存空間選擇</span></a>
   <a href="/account"><strong>會員中心</strong><span>查看付款與開通進度</span></a>
-</section>
-
-<section id="plans" class="section">
-  <div class="section-head">
-    <div>
-      <p class="eyebrow">Products</p>
-      <h2>選擇方案</h2>
-    </div>
-    <p>點擊立即租用後會先進入產品詳細購買畫面，確認規格與數量後再加入購物車。</p>
-  </div>
-  <div class="plans">
-    <% products.forEach((product) => { const specs = JSON.parse(product.specs); %>
-      <article class="plan-card">
-        <div class="plan-top">
-          <span><%= product.category %></span>
-          <h3><%= product.name %></h3>
-          <p><%= product.description %></p>
-        </div>
-        <div class="price">NT$ <strong><%= product.price %></strong><small>/月</small></div>
-        <ul class="specs">
-          <% Object.entries(specs).forEach(([key, value]) => { %>
-            <li><span><%= key %></span><strong><%= value %></strong></li>
-          <% }) %>
-        </ul>
-        <a class="button primary full" href="/product/<%= product.id %>">立即租用</a>
-      </article>
-    <% }) %>
-  </div>
 </section>
 
 <section id="automation" class="feature-band">

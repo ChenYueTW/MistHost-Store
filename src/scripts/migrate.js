@@ -183,16 +183,16 @@ if (count === 0) {
 const productUpdates = [
   {
     slug: "game-starter",
-    name: "Minecraft Starter",
+    name: "Minecraft 入門",
     category: "Minecraft伺服器",
-    specs: JSON.stringify({ CPU: "1 核心", Memory: "2 GB", Disk: "20 GB NVMe", DDoS: "Basic" }),
+    specs: JSON.stringify({ CPU: "1 核心", Memory: "2 GB", Disk: "10 GB NVMe", DDoS: "Basic" }),
     description: "適合小型 Minecraft 生存伺服器與好友同樂。"
   },
   {
     slug: "game-pro",
-    name: "Minecraft Pro",
+    name: "Minecraft 生存",
     category: "Minecraft伺服器",
-    specs: JSON.stringify({ CPU: "2 核心", Memory: "6 GB", Disk: "60 GB NVMe", DDoS: "Enhanced" }),
+    specs: JSON.stringify({ CPU: "2 核心", Memory: "4 GB", Disk: "20 GB NVMe", DDoS: "Enhanced" }),
     description: "給中型玩家社群使用，保留更高 CPU 與備份額度。"
   },
   {
@@ -206,26 +206,29 @@ const productUpdates = [
 const updateProduct = db.prepare("UPDATE products SET name = :name, category = :category, specs = :specs, description = :description WHERE slug = :slug");
 for (const product of productUpdates) updateProduct.run(product);
 
-const minecraftPlans = Array.from({ length: 16 }, (_, index) => {
-  const core = index + 1;
-  const memory = core * 2;
-  const disk = core === 1 ? 10 : core === 2 ? 20 : Math.min(60, 15 + core * 5);
-  const slug = core === 1 ? "game-starter" : core === 2 ? "game-pro" : `minecraft-${core}c-${memory}g-${disk}g`;
-  return {
-    name: `Minecraft ${core}C${memory}G${disk}G`,
-    slug,
-    category: "Minecraft伺服器",
-    description: `${core} 核心、${memory} GB 記憶體、${disk} GB NVMe 儲存空間的 Minecraft 伺服器方案。`,
-    price: core * 100,
-    period: "monthly",
-    specs: JSON.stringify({ CPU: `${core} 核心`, Memory: `${memory} GB`, Disk: `${disk} GB NVMe` }),
-    provision_config: JSON.stringify({
-      limits: { memory: memory * 1024, swap: 0, disk: disk * 1024, io: 500, cpu: core * 100 },
-      feature_limits: { databases: Math.max(1, Math.ceil(core / 4)), backups: Math.max(1, Math.ceil(core / 2)), allocations: 1 }
-    }),
-    sort_order: core
-  };
-});
+const minecraftPlans = [
+  { name: "Minecraft 入門", slug: "game-starter", core: 1, memory: 2, disk: 10 },
+  { name: "Minecraft 生存", slug: "game-pro", core: 2, memory: 4, disk: 20 },
+  { name: "Minecraft 工匠", slug: "minecraft-builder", core: 4, memory: 8, disk: 30 },
+  { name: "Minecraft 紅石", slug: "minecraft-redstone", core: 6, memory: 12, disk: 40 },
+  { name: "Minecraft 要塞", slug: "minecraft-fortress", core: 8, memory: 16, disk: 50 },
+  { name: "Minecraft 遠征", slug: "minecraft-expedition", core: 10, memory: 20, disk: 55 },
+  { name: "Minecraft 領域", slug: "minecraft-realm", core: 12, memory: 24, disk: 60 },
+  { name: "Minecraft 旗艦", slug: "minecraft-flagship", core: 16, memory: 32, disk: 60 }
+].map((plan, index) => ({
+  name: plan.name,
+  slug: plan.slug,
+  category: "Minecraft伺服器",
+  description: `${plan.core} 核心、${plan.memory} GB 記憶體、${plan.disk} GB NVMe 儲存空間的 Minecraft 伺服器方案。`,
+  price: plan.core * 100,
+  period: "monthly",
+  specs: JSON.stringify({ CPU: `${plan.core} 核心`, Memory: `${plan.memory} GB`, Disk: `${plan.disk} GB NVMe` }),
+  provision_config: JSON.stringify({
+    limits: { memory: plan.memory * 1024, swap: 0, disk: plan.disk * 1024, io: 500, cpu: plan.core * 100 },
+    feature_limits: { databases: Math.max(1, Math.ceil(plan.core / 4)), backups: Math.max(1, Math.ceil(plan.core / 2)), allocations: 1 }
+  }),
+  sort_order: index + 1
+}));
 
 const upsertMinecraftPlan = db.prepare(`
   INSERT INTO products (name, slug, category, description, price, period, specs, provision_config, active, sort_order)
@@ -248,6 +251,14 @@ db.prepare(`
   SET active = 0
   WHERE category = 'Minecraft伺服器'
     AND slug NOT IN (${minecraftPlanSlugs.map(() => "?").join(",")})
+`).run(...minecraftPlanSlugs);
+db.prepare(`
+  DELETE FROM products
+  WHERE category = 'Minecraft伺服器'
+    AND slug GLOB 'minecraft-[0-9]*c-[0-9]*g-[0-9]*g'
+    AND slug NOT IN (${minecraftPlanSlugs.map(() => "?").join(",")})
+    AND NOT EXISTS (SELECT 1 FROM orders WHERE orders.product_id = products.id)
+    AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_items.product_id = products.id)
 `).run(...minecraftPlanSlugs);
 
 const insertCoupon = db.prepare(`
