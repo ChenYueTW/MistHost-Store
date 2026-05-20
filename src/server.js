@@ -504,8 +504,8 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
 
 app.post("/account/password", requireAuth, async (req, res, next) => {
   try {
-    const password = String(req.body.password || "");
-    const confirmPassword = String(req.body.confirmPassword || "");
+    const mode = req.body.mode === "random" ? "random" : "custom";
+    const password = String(mode === "random" ? req.body.randomPassword || "" : req.body.customPassword || "");
     const orders = await getAccountOrders(req.session.userId);
     const renderProfile = (locals) => res.status(locals.passwordError ? 400 : 200).render("account", {
       activeTab: "profile",
@@ -520,9 +520,6 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
 
     if (!isValidCustomPassword(password)) {
       return renderProfile({ passwordError: "密碼需大於 8 字元，且至少包含 1 個英文與 1 個數字。" });
-    }
-    if (password !== confirmPassword) {
-      return renderProfile({ passwordError: "兩次輸入的密碼不一致。" });
     }
 
     const result = await resetPanelUserPassword({ email: res.locals.user.email, password });

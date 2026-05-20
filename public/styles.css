@@ -638,32 +638,6 @@ input:focus {
   gap: 8px;
 }
 
-.custom-password-form {
-  display: grid;
-  width: min(100%, 420px);
-  gap: 10px;
-  justify-items: stretch;
-  padding: 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.custom-password-form label {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.custom-password-form input {
-  margin-top: 6px;
-}
-
-.custom-password-form small {
-  color: var(--muted);
-}
-
 .password-row form,
 .password-stack form {
   margin: 0;
@@ -673,6 +647,127 @@ input:focus {
 .password-stack .button {
   min-height: 34px;
   padding: 0 12px;
+}
+
+.password-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, visibility 180ms ease;
+}
+
+.password-modal.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.password-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 24, 42, 0.48);
+  backdrop-filter: blur(4px);
+}
+
+.password-modal-panel {
+  position: relative;
+  display: grid;
+  width: min(100%, 460px);
+  gap: 16px;
+  padding: 26px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  transform: translateY(12px) scale(0.97);
+  transition: transform 180ms ease;
+}
+
+.password-modal.open .password-modal-panel {
+  transform: translateY(0) scale(1);
+}
+
+.password-modal-panel h3 {
+  margin: -8px 0 2px;
+  font-size: 28px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.password-reset-form,
+.password-mode-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.password-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.password-mode-tabs label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.password-mode-tabs input {
+  width: auto;
+  min-height: auto;
+}
+
+.password-mode-panel label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.password-mode-panel input {
+  margin-top: 6px;
+}
+
+.password-mode-panel small {
+  color: var(--muted);
+}
+
+.generated-password {
+  display: block;
+  padding: 12px;
+  overflow-wrap: anywhere;
+  color: #11294a;
+  background: #e8f2ff;
+  border: 1px solid #c9def6;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .oauth-divider {
@@ -1216,7 +1311,7 @@ dd {
 }
 
 .product-create-top {
-  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.5fr) minmax(170px, 0.9fr);
+  grid-template-columns: minmax(260px, 2fr) minmax(170px, 1fr);
 }
 
 .product-create-bottom {
@@ -1263,6 +1358,10 @@ dd {
 }
 
 [hidden] {
+  display: none !important;
+}
+
+.hidden {
   display: none !important;
 }
 
@@ -1520,22 +1619,9 @@ dd {
 
 .product-admin-heading {
   display: grid;
-  grid-template-columns: minmax(190px, 0.9fr) minmax(260px, 1.5fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
   gap: 14px;
   align-items: center;
-}
-
-.product-admin-heading code {
-  display: inline-flex;
-  max-width: 100%;
-  padding: 6px 8px;
-  overflow-wrap: anywhere;
-  color: #11294a;
-  background: #e8f2ff;
-  border: 1px solid #c9def6;
-  border-radius: 8px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
 }
 
 .product-admin-heading span {

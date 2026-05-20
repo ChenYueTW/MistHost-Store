@@ -124,7 +124,7 @@ if (count === 0) {
 
   const products = [
     {
-      name: "Minecraft Starter",
+      name: "Minecraft Oak",
       slug: "game-starter",
       category: "Minecraft伺服器",
       description: "適合小型 Minecraft 生存伺服器與好友同樂。",
@@ -138,7 +138,7 @@ if (count === 0) {
       sort_order: 1
     },
     {
-      name: "Minecraft Pro",
+      name: "Minecraft Stone",
       slug: "game-pro",
       category: "Minecraft伺服器",
       description: "給中型玩家社群使用，保留更高 CPU 與備份額度。",
@@ -183,14 +183,14 @@ if (count === 0) {
 const productUpdates = [
   {
     slug: "game-starter",
-    name: "Minecraft 入門",
+    name: "Minecraft Oak",
     category: "Minecraft伺服器",
     specs: JSON.stringify({ CPU: "1 核心", Memory: "2 GB", Disk: "10 GB NVMe", DDoS: "Basic" }),
     description: "適合小型 Minecraft 生存伺服器與好友同樂。"
   },
   {
     slug: "game-pro",
-    name: "Minecraft 生存",
+    name: "Minecraft Stone",
     category: "Minecraft伺服器",
     specs: JSON.stringify({ CPU: "2 核心", Memory: "4 GB", Disk: "20 GB NVMe", DDoS: "Enhanced" }),
     description: "給中型玩家社群使用，保留更高 CPU 與備份額度。"
@@ -207,14 +207,14 @@ const updateProduct = db.prepare("UPDATE products SET name = :name, category = :
 for (const product of productUpdates) updateProduct.run(product);
 
 const minecraftPlans = [
-  { name: "Minecraft 入門", slug: "game-starter", core: 1, memory: 2, disk: 10 },
-  { name: "Minecraft 生存", slug: "game-pro", core: 2, memory: 4, disk: 20 },
-  { name: "Minecraft 工匠", slug: "minecraft-builder", core: 4, memory: 8, disk: 30 },
-  { name: "Minecraft 紅石", slug: "minecraft-redstone", core: 6, memory: 12, disk: 40 },
-  { name: "Minecraft 要塞", slug: "minecraft-fortress", core: 8, memory: 16, disk: 50 },
-  { name: "Minecraft 遠征", slug: "minecraft-expedition", core: 10, memory: 20, disk: 55 },
-  { name: "Minecraft 領域", slug: "minecraft-realm", core: 12, memory: 24, disk: 60 },
-  { name: "Minecraft 旗艦", slug: "minecraft-flagship", core: 16, memory: 32, disk: 60 }
+  { name: "Minecraft Oak", slug: "game-starter", core: 1, memory: 2, disk: 10 },
+  { name: "Minecraft Stone", slug: "game-pro", core: 2, memory: 4, disk: 20 },
+  { name: "Minecraft Iron", slug: "minecraft-builder", core: 4, memory: 8, disk: 30 },
+  { name: "Minecraft Gold", slug: "minecraft-redstone", core: 6, memory: 12, disk: 40 },
+  { name: "Minecraft Diamond", slug: "minecraft-fortress", core: 8, memory: 16, disk: 50 },
+  { name: "Minecraft Emerald", slug: "minecraft-expedition", core: 10, memory: 20, disk: 55 },
+  { name: "Minecraft Netherite", slug: "minecraft-realm", core: 12, memory: 24, disk: 60 },
+  { name: "Minecraft Dragon", slug: "minecraft-flagship", core: 16, memory: 32, disk: 60 }
 ].map((plan, index) => ({
   name: plan.name,
   slug: plan.slug,
