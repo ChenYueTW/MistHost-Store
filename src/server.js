@@ -451,6 +451,8 @@ app.get("/account", requireAuth, async (req, res, next) => {
       activeTab,
       orders,
       passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
+      passwordError: null,
+      passwordNotice: null,
       resetPassword: null,
       statusLabels
     });
@@ -490,8 +492,59 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
       activeTab: "profile",
       orders,
       passwordLabel: password,
+      passwordError: null,
+      passwordNotice: null,
       resetPassword: password,
       statusLabels
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/account/password", requireAuth, async (req, res, next) => {
+  try {
+    const password = String(req.body.password || "");
+    const confirmPassword = String(req.body.confirmPassword || "");
+    const orders = await getAccountOrders(req.session.userId);
+    const renderProfile = (locals) => res.status(locals.passwordError ? 400 : 200).render("account", {
+      activeTab: "profile",
+      orders,
+      passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
+      passwordError: null,
+      passwordNotice: null,
+      resetPassword: null,
+      statusLabels,
+      ...locals
+    });
+
+    if (!isValidCustomPassword(password)) {
+      return renderProfile({ passwordError: "密碼需大於 8 字元，且至少包含 1 個英文與 1 個數字。" });
+    }
+    if (password !== confirmPassword) {
+      return renderProfile({ passwordError: "兩次輸入的密碼不一致。" });
+    }
+
+    const result = await resetPanelUserPassword({ email: res.locals.user.email, password });
+    const passwordHash = await hashPassword(password);
+    await query(`
+      UPDATE customers
+      SET panel_password_last = :password,
+          password_hash = :passwordHash,
+          pterodactyl_user_id = COALESCE(:panelUserId, pterodactyl_user_id),
+          pterodactyl_sync_status = :status
+      WHERE id = :id
+    `, {
+      id: res.locals.user.id,
+      password,
+      passwordHash,
+      panelUserId: result.id,
+      status: result.message
+    });
+    res.locals.user.panel_password_last = password;
+    return renderProfile({
+      passwordLabel: password,
+      passwordNotice: "密碼已更新，可用於本店登入與 Panel 登入。"
     });
   } catch (error) {
     next(error);
@@ -585,7 +638,8 @@ app.post("/admin/orders/:id/status", requireAuth, requireAdmin, async (req, res,
 app.post("/admin/products", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const name = String(req.body.name || "").trim();
-    const slug = String(req.body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-")).replace(/^-|-$/g, "");
+    const slug = String(req.body.slug || name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!slug) return res.status(400).render("admin", await adminData("products"));
     const cpu = Math.max(1, Number.parseInt(req.body.cpu || "1", 10) || 1);
     const ram = Math.max(1, Number.parseInt(req.body.ram || "1", 10) || 1);
     const storage = Math.max(1, Number.parseInt(req.body.storage || "10", 10) || 10);
@@ -1007,6 +1061,20 @@ async function syncPterodactylUser({ email, name, password }) {
       message: `Pterodactyl sync failed: ${error.response?.data?.errors?.[0]?.detail || error.message}`
     };
   }
+}
+
+async function getAccountOrders(customerId) {
+  return query(`
+    SELECT o.*, p.name AS product_name
+    FROM orders o
+    JOIN products p ON p.id = o.product_id
+    WHERE o.customer_id = :customerId
+    ORDER BY o.created_at DESC
+  `, { customerId });
+}
+
+function isValidCustomPassword(password) {
+  return password.length > 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
 }
 
 async function verifyPanelPasswordLogin(email, password) {

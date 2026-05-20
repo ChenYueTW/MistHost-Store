@@ -21,11 +21,29 @@
         <dt>密碼</dt>
         <dd class="password-stack">
           <span><%= passwordLabel %></span>
+          <form class="custom-password-form" method="post" action="/account/password">
+            <label>
+              自訂密碼
+              <input type="password" name="password" minlength="9" autocomplete="new-password" required>
+            </label>
+            <label>
+              確認密碼
+              <input type="password" name="confirmPassword" minlength="9" autocomplete="new-password" required>
+            </label>
+            <small>需大於 8 字元，且包含英文與數字。</small>
+            <button class="button primary" type="submit">儲存自訂密碼</button>
+          </form>
           <form method="post" action="/account/reset-panel-password">
             <button class="button ghost" type="submit">重設密碼</button>
           </form>
         </dd>
       </dl>
+      <% if (passwordError) { %>
+        <div class="alert"><%= passwordError %></div>
+      <% } %>
+      <% if (passwordNotice) { %>
+        <div class="notice"><%= passwordNotice %></div>
+      <% } %>
       <% if (resetPassword) { %>
         <div class="notice">密碼已重設，可用於本店登入與 Panel 登入：<strong><%= resetPassword %></strong></div>
       <% } %>

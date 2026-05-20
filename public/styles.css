@@ -638,6 +638,32 @@ input:focus {
   gap: 8px;
 }
 
+.custom-password-form {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 10px;
+  justify-items: stretch;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.custom-password-form label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.custom-password-form input {
+  margin-top: 6px;
+}
+
+.custom-password-form small {
+  color: var(--muted);
+}
+
 .password-row form,
 .password-stack form {
   margin: 0;
@@ -1190,7 +1216,7 @@ dd {
 }
 
 .product-create-top {
-  grid-template-columns: minmax(260px, 2fr) minmax(170px, 1fr);
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.5fr) minmax(170px, 0.9fr);
 }
 
 .product-create-bottom {
@@ -1494,9 +1520,22 @@ dd {
 
 .product-admin-heading {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(260px, 1.5fr) auto;
   gap: 14px;
   align-items: center;
+}
+
+.product-admin-heading code {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  color: #11294a;
+  background: #e8f2ff;
+  border: 1px solid #c9def6;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
 }
 
 .product-admin-heading span {

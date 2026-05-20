@@ -80,7 +80,8 @@
       <h2>商品管理</h2>
       <form class="admin-form product-create-form" method="post" action="/admin/products">
         <div class="product-create-top">
-          <input class="product-name-input" name="name" placeholder="商品名稱" required>
+          <input class="product-code-input" name="slug" placeholder="Product Code" pattern="[a-z0-9-]+" title="Use lowercase English letters, numbers, and hyphens." required>
+          <input class="product-name-input" name="name" placeholder="Display Name" required>
           <select name="category" class="product-category-filter">
             <% productCategories.forEach((category) => { %>
               <option value="<%= category %>"><%= category %></option>
@@ -99,8 +100,8 @@
         <% products.forEach((product) => { %>
           <div class="product-admin-row" data-category="<%= product.category %>" <%= product.category !== productCategories[0] ? 'hidden' : '' %>>
             <div class="product-admin-heading">
-              <strong><%= product.name %></strong>
-              <span><%= product.category %> / <%= product.parsedSpecs.CPU || '-' %> / <%= product.parsedSpecs.Memory || '-' %> / <%= product.parsedSpecs.Disk || '-' %></span>
+              <strong><code><%= product.slug %></code></strong>
+              <span><%= product.name %> / <%= product.category %> / <%= product.parsedSpecs.CPU || '-' %> / <%= product.parsedSpecs.Memory || '-' %> / <%= product.parsedSpecs.Disk || '-' %></span>
               <em><%= product.active ? '上架中' : '已下架' %></em>
             </div>
             <div class="product-admin-controls">
