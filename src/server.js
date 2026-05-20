@@ -281,6 +281,7 @@ app.post("/checkout", requireAuth, async (req, res, next) => {
       ChoosePayment: paymentMethod.choosePayment,
       EncryptType: "1",
       StoreExpireDate: "10080",
+      OrderResultURL: `${baseUrl}/payments/ecpay/result`,
       ClientBackURL: `${baseUrl}/orders/${orderResult.insertId}`,
       ChooseSubPayment: paymentMethod.chooseSubPayment,
       CustomField1: String(orderResult.insertId),
@@ -710,40 +711,20 @@ app.post("/admin/products/:id/active", requireAuth, requireAdmin, async (req, re
 
 app.post("/payments/ecpay/return", async (req, res, next) => {
   try {
-    if (!verifyCheckMacValue(req.body)) return res.status(400).send("0|CheckMacValue invalid");
+    await handleEcpayNotification(req.body);
+    return res.type("text/plain").send("1|OK");
+  } catch (error) {
+    console.error("ECPay ReturnURL failed:", error);
+    return res.type("text/plain").send("1|OK");
+  }
+});
 
-    const orderNo = req.body.MerchantTradeNo;
-    const rtnCode = String(req.body.RtnCode);
-    if (rtnCode !== "1") {
-      await query("UPDATE orders SET status = 'failed', provision_message = :message WHERE order_no = :orderNo", {
-        orderNo,
-        message: req.body.RtnMsg || "ECPay payment failed."
-      });
-      return res.send("1|OK");
-    }
-
-    const orderRows = await query(`
-      SELECT o.*, c.email, c.name AS customer_name
-      FROM orders o
-      JOIN customers c ON c.id = o.customer_id
-      WHERE o.order_no = :orderNo
-      LIMIT 1
-    `, { orderNo });
-    const order = orderRows[0];
-    if (!order) return res.send("1|OK");
-    if (["paid", "provisioned", "manual", "failed"].includes(order.status)) return res.send("1|OK");
-
-    await query(`
-      UPDATE orders
-      SET status = 'paid', ecpay_trade_no = :tradeNo, ecpay_payment_type = :paymentType, paid_at = CURRENT_TIMESTAMP
-      WHERE id = :id
-    `, {
-      id: order.id,
-      tradeNo: req.body.TradeNo || null,
-      paymentType: req.body.PaymentType || null
-    });
-
-    return res.send("1|OK");
+app.post("/payments/ecpay/result", async (req, res, next) => {
+  try {
+    const result = await handleEcpayNotification(req.body);
+    const orderId = Number(result?.orderId || req.body.CustomField1 || 0);
+    if (orderId) return res.redirect(`/orders/${orderId}`);
+    return res.redirect("/account");
   } catch (error) {
     next(error);
   }
@@ -905,6 +886,58 @@ async function finishAdminMutation(req, res, tab) {
     return res.render("admin", await adminData(tab));
   }
   return res.redirect(`/admin?tab=${tab}`);
+}
+
+async function handleEcpayNotification(payload) {
+  if (!verifyCheckMacValue(payload)) {
+    console.warn("ECPay callback ignored: invalid CheckMacValue", {
+      merchantTradeNo: payload.MerchantTradeNo,
+      rtnCode: payload.RtnCode
+    });
+    return { ok: false, reason: "invalid-checkmac" };
+  }
+
+  const orderNo = payload.MerchantTradeNo;
+  const orderRows = await query(`
+    SELECT o.*, c.email, c.name AS customer_name
+    FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    WHERE o.order_no = :orderNo
+    LIMIT 1
+  `, { orderNo });
+  const order = orderRows[0];
+  if (!order) return { ok: false, reason: "order-not-found" };
+
+  const rtnCode = String(payload.RtnCode || "");
+  if (rtnCode !== "1") {
+    if (!["paid", "provisioned", "manual"].includes(order.status)) {
+      await query("UPDATE orders SET status = 'failed', provision_message = :message WHERE id = :id", {
+        id: order.id,
+        message: payload.RtnMsg || "ECPay payment failed."
+      });
+    }
+    return { ok: true, orderId: order.id, status: "failed" };
+  }
+
+  if (["provisioned", "manual"].includes(order.status)) {
+    return { ok: true, orderId: order.id, status: order.status };
+  }
+
+  await query(`
+    UPDATE orders
+    SET status = 'paid',
+        ecpay_trade_no = :tradeNo,
+        ecpay_payment_type = :paymentType,
+        paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP),
+        provision_message = NULL
+    WHERE id = :id
+  `, {
+    id: order.id,
+    tradeNo: payload.TradeNo || order.ecpay_trade_no || null,
+    paymentType: payload.PaymentType || order.ecpay_payment_type || null
+  });
+
+  return { ok: true, orderId: order.id, status: "paid" };
 }
 
 async function getPanelNodesForAdmin() {
