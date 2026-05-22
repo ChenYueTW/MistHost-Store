@@ -557,6 +557,12 @@ h3 {
   margin: 22px 0;
 }
 
+.product-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .auth-shell {
   display: grid;
   place-items: center;
@@ -1735,7 +1741,8 @@ dd {
   }
 
   .cart-row,
-  .cart-row-edit {
+  .cart-row-edit,
+  .product-actions {
     grid-template-columns: 1fr;
   }
 }

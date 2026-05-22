@@ -1,4 +1,5 @@
 import axios from "axios";
+import compression from "compression";
 import crypto from "node:crypto";
 import express from "express";
 import fs from "node:fs";
@@ -38,7 +39,15 @@ const statusLabels = Object.fromEntries(orderStatuses.map((status) => [status.va
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use(compression());
+app.use(express.static(path.join(__dirname, "..", "public"), {
+  etag: true,
+  immutable: true,
+  lastModified: true,
+  maxAge: "7d"
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
@@ -106,7 +115,7 @@ app.post("/cart/add/:productId", async (req, res, next) => {
     if (existing) existing.quantity = Math.min(10, existing.quantity + quantity);
     else cart.items.push({ productId, quantity });
     req.session.cart = cart;
-    res.redirect("/cart");
+    res.redirect(req.body.intent === "checkout" ? "/checkout" : "/cart");
   } catch (error) {
     next(error);
   }
