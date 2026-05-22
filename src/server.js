@@ -281,6 +281,7 @@ app.post("/checkout", requireAuth, async (req, res, next) => {
       ChoosePayment: paymentMethod.choosePayment,
       EncryptType: "1",
       StoreExpireDate: "10080",
+      PaymentInfoURL: `${baseUrl}/payments/ecpay/info`,
       OrderResultURL: `${baseUrl}/payments/ecpay/result`,
       ClientBackURL: `${baseUrl}/orders/${orderResult.insertId}`,
       ChooseSubPayment: paymentMethod.chooseSubPayment,
@@ -711,10 +712,12 @@ app.post("/admin/products/:id/active", requireAuth, requireAdmin, async (req, re
 
 app.post("/payments/ecpay/return", async (req, res, next) => {
   try {
-    await handleEcpayNotification(req.body);
+    const result = await handleEcpayNotification(req.body);
+    recordEcpayCallback("return", req.body, result);
     return res.type("text/plain").send("1|OK");
   } catch (error) {
     console.error("ECPay ReturnURL failed:", error);
+    recordEcpayCallback("return", req.body, { ok: false, error: error.message });
     return res.type("text/plain").send("1|OK");
   }
 });
@@ -722,12 +725,18 @@ app.post("/payments/ecpay/return", async (req, res, next) => {
 app.post("/payments/ecpay/result", async (req, res, next) => {
   try {
     const result = await handleEcpayNotification(req.body);
+    recordEcpayCallback("result", req.body, result);
     const orderId = Number(result?.orderId || req.body.CustomField1 || 0);
     if (orderId) return res.redirect(`/orders/${orderId}`);
     return res.redirect("/account");
   } catch (error) {
     next(error);
   }
+});
+
+app.post("/payments/ecpay/info", (req, res) => {
+  recordEcpayCallback("payment-info", req.body, { ok: true, acknowledged: true });
+  return res.type("text/plain").send("1|OK");
 });
 
 app.get("/orders/:id", requireAuth, async (req, res, next) => {
@@ -938,6 +947,21 @@ async function handleEcpayNotification(payload) {
   });
 
   return { ok: true, orderId: order.id, status: "paid" };
+}
+
+function recordEcpayCallback(source, payload, result) {
+  try {
+    const safePayload = { ...payload };
+    delete safePayload.CheckMacValue;
+    const logDir = path.join(paths.rootDir, "data");
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(
+      path.join(logDir, "ecpay-callbacks.log"),
+      `${JSON.stringify({ at: new Date().toISOString(), source, payload: safePayload, result })}\n`
+    );
+  } catch (error) {
+    console.error("Failed to write ECPay callback log:", error);
+  }
 }
 
 async function getPanelNodesForAdmin() {
