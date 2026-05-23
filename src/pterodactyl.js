@@ -42,6 +42,19 @@ export async function getPanelUserByEmail(email) {
   return findPanelUser(api, email);
 }
 
+export async function listPanelServersByUserEmail(email) {
+  if (!config.pterodactyl.enabled || !email) return [];
+  const api = client();
+  const user = await findPanelUser(api, email);
+  if (!user) return [];
+
+  const { data } = await api.get(`/users/${user.id}`, {
+    params: { include: "servers" }
+  });
+  const servers = data.data?.attributes?.relationships?.servers?.data || data.attributes?.relationships?.servers?.data || [];
+  return servers.map((server) => normalizeServer(server.attributes || server));
+}
+
 export async function listPanelNodes() {
   if (!config.pterodactyl.enabled) return [];
   const api = client();

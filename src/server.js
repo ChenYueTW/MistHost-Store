@@ -24,6 +24,7 @@ import {
   getPanelUserByEmail,
   listMinecraftEggs,
   listPanelNodes,
+  listPanelServersByUserEmail,
   panelServerUrl,
   provisionServer,
   renamePanelServer,
@@ -571,7 +572,7 @@ app.get("/account", requireAuth, async (req, res, next) => {
     await refreshCustomerProvisioning(req.session.userId);
     const [orders, servers, minecraftEggs] = await Promise.all([
       getAccountOrders(req.session.userId),
-      getCustomerServers(req.session.userId),
+      getCustomerServers(res.locals.user),
       activeTab === "servers" ? getMinecraftEggOptions() : Promise.resolve([])
     ]);
     res.render("account", {
@@ -594,12 +595,12 @@ app.get("/account", requireAuth, async (req, res, next) => {
 
 app.post("/account/servers/:id/name", requireAuth, async (req, res, next) => {
   try {
-    const server = await getOwnedCustomerServer(req.session.userId, req.params.id);
+    const server = await getOwnedCustomerServer(res.locals.user, req.params.id);
     if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
     const name = String(req.body.name || "").trim();
     if (!name) return res.redirect("/account?tab=servers");
     await renamePanelServer({ serverId: server.pterodactyl_server_id, name });
-    await query("UPDATE customer_servers SET name = :name WHERE id = :id", { id: server.id, name });
+    await query("UPDATE customer_servers SET name = :name WHERE pterodactyl_server_id = :serverId", { serverId: server.pterodactyl_server_id, name });
     res.redirect("/account?tab=servers");
   } catch (error) {
     next(error);
@@ -608,7 +609,7 @@ app.post("/account/servers/:id/name", requireAuth, async (req, res, next) => {
 
 app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
   try {
-    const server = await getOwnedCustomerServer(req.session.userId, req.params.id);
+    const server = await getOwnedCustomerServer(res.locals.user, req.params.id);
     if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
     const minecraftEggs = await getMinecraftEggOptions();
     const eggId = Number(req.body.minecraftEggId || 0);
@@ -622,8 +623,8 @@ app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
           egg_name = :eggName,
           status = 'manual',
           installed = 0
-      WHERE id = :id
-    `, { id: server.id, eggId: selected.id, nestId: selected.nest, eggName: selected.name });
+      WHERE pterodactyl_server_id = :serverId
+    `, { serverId: server.pterodactyl_server_id, eggId: selected.id, nestId: selected.nest, eggName: selected.name });
     await updateOrderProvisioningStatus(server.order_id);
     res.redirect("/account?tab=servers");
   } catch (error) {
@@ -1419,27 +1420,57 @@ async function backfillCustomerServers(customerId) {
   }
 }
 
-async function getCustomerServers(customerId) {
-  await backfillCustomerServers(customerId);
-  const rows = await query(`
-    SELECT cs.*,
-           o.order_no,
-           oi.product_name
-    FROM customer_servers cs
-    LEFT JOIN orders o ON o.id = cs.order_id
-    LEFT JOIN order_items oi ON oi.id = cs.order_item_id
-    WHERE cs.customer_id = :customerId
-    ORDER BY cs.created_at DESC, cs.id DESC
-  `, { customerId });
-  return rows.map((server) => ({
-    ...server,
-    panelUrl: panelServerUrl(server.pterodactyl_identifier),
-    statusLabel: statusLabels[server.status] || server.status
-  }));
+async function getCustomerServers(user) {
+  return getPanelServersForAccount(user);
 }
 
-async function getOwnedCustomerServer(customerId, serverId) {
-  const rows = await query("SELECT * FROM customer_servers WHERE id = :serverId AND customer_id = :customerId LIMIT 1", { serverId, customerId });
+async function getPanelServersForAccount(user) {
+  try {
+    const panelServers = await listPanelServersByUserEmail(user.email);
+    const cachedServers = await query(`
+      SELECT cs.*,
+             o.order_no,
+             oi.product_name
+      FROM customer_servers cs
+      LEFT JOIN orders o ON o.id = cs.order_id
+      LEFT JOIN order_items oi ON oi.id = cs.order_item_id
+      WHERE cs.customer_id = :customerId
+    `, { customerId: user.id });
+    const cachedByPanelId = Object.fromEntries(cachedServers.map((server) => [Number(server.pterodactyl_server_id), server]));
+
+    return panelServers.map((server) => {
+      const cached = cachedByPanelId[Number(server.id)] || {};
+      const status = server.installed ? "provisioned" : "manual";
+      return {
+        ...cached,
+        id: server.id,
+        customer_id: user.id,
+        pterodactyl_server_id: server.id,
+        pterodactyl_identifier: server.identifier,
+        name: server.name,
+        egg_id: server.egg ?? cached.egg_id ?? null,
+        nest_id: server.nest ?? cached.nest_id ?? null,
+        egg_name: cached.egg_name || server.egg || null,
+        status,
+        installed: server.installed ? 1 : 0,
+        product_name: cached.product_name || "Pterodactyl Server",
+        order_no: cached.order_no || "-",
+        panelUrl: panelServerUrl(server.identifier),
+        statusLabel: statusLabels[status] || status
+      };
+    });
+  } catch (error) {
+    console.error("Failed to load account servers from Pterodactyl:", error.response?.data || error.message);
+    return [];
+  }
+}
+
+async function getOwnedCustomerServer(user, serverId) {
+  const panelServers = await getPanelServersForAccount(user);
+  const panelServer = panelServers.find((server) => Number(server.pterodactyl_server_id) === Number(serverId));
+  if (panelServer) return panelServer;
+
+  const rows = await query("SELECT * FROM customer_servers WHERE pterodactyl_server_id = :serverId AND customer_id = :customerId LIMIT 1", { serverId, customerId: user.id });
   return rows[0] ?? null;
 }
 
