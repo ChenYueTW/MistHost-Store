@@ -139,6 +139,7 @@ END;
 `);
 
   addMissingColumns();
+  clearStoredPanelPasswords();
   seedDefaultProducts();
   seedDefaultCoupons();
 }
@@ -189,6 +190,10 @@ function addColumns(table, columns) {
   for (const [name, definition] of columns) {
     if (!existing.includes(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
   }
+}
+
+function clearStoredPanelPasswords() {
+  db.prepare("UPDATE customers SET panel_password_last = NULL WHERE panel_password_last IS NOT NULL").run();
 }
 
 function seedDefaultProducts() {

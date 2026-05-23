@@ -38,6 +38,9 @@ import { runStartupMigrations } from "./schema.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const sessionMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
+const authRateLimitWindowMs = 15 * 60 * 1000;
+const passwordResetRateLimitWindowMs = 60 * 60 * 1000;
+const rateLimitStore = new Map();
 const paymentMethods = {
   cvs_711: { label: "7-11 超商代碼", choosePayment: "CVS", chooseSubPayment: "IBON", feeKey: "cvs" },
   cvs_family: { label: "全家超商代碼", choosePayment: "CVS", chooseSubPayment: "FAMILY", feeKey: "cvs" },
@@ -59,6 +62,7 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+app.use(securityHeaders);
 app.use(compression());
 app.use(express.static(path.join(__dirname, "..", "public"), {
   etag: true,
@@ -73,8 +77,15 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   rolling: true,
-  cookie: { httpOnly: true, sameSite: "lax", maxAge: sessionMaxAgeMs }
+  name: "misthost.sid",
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecureCookieEnabled(),
+    maxAge: sessionMaxAgeMs
+  }
 }));
+app.use(csrfProtection);
 
 app.use(async (req, res, next) => {
   try {
@@ -86,6 +97,7 @@ app.use(async (req, res, next) => {
     res.locals.user = user;
     res.locals.productCategories = productCategories;
     res.locals.paymentMethods = paymentMethods;
+    res.locals.csrfToken = getCsrfToken(req);
     next();
   } catch (error) {
     next(error);
@@ -365,20 +377,26 @@ app.get("/register", (req, res) => {
 
 app.post("/register", async (req, res, next) => {
   try {
+    const limitKey = rateLimitKey("register", req);
+    if (isRateLimited(limitKey, 8, authRateLimitWindowMs)) {
+      return res.status(429).render("auth", { mode: "register", error: "嘗試次數過多，請稍後再試。" });
+    }
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
-    if (!name || !email || password.length < 8) {
-      return res.status(400).render("auth", { mode: "register", error: "請輸入姓名、Email，密碼至少 8 碼。" });
+    if (!name || name.length > 80 || !isValidEmail(email) || !isValidCustomPassword(password)) {
+      recordRateLimitAttempt(limitKey);
+      return res.status(400).render("auth", { mode: "register", error: "請輸入有效姓名與 Email，密碼需大於 8 字元且包含英文與數字。" });
     }
 
     const existing = await findCustomerByEmail(email);
     if (existing?.password_hash) {
+      recordRateLimitAttempt(limitKey);
       return res.status(409).render("auth", { mode: "register", error: "這個 Email 已經註冊，請直接登入。" });
     }
 
     const panelResult = await syncPterodactylUser({ email, name, password });
-    const accountPassword = panelResult.status === "exists" ? generateRandomPassword(16) : password;
+    const accountPassword = password;
     const passwordHash = await hashPassword(accountPassword);
     await query(`
       INSERT INTO customers (email, name, password_hash, auth_provider, pterodactyl_user_id, pterodactyl_sync_status, panel_password_last)
@@ -396,12 +414,13 @@ app.post("/register", async (req, res, next) => {
       passwordHash,
       panelUserId: panelResult.id,
       panelStatus: panelResult.message,
-      panelPassword: accountPassword
+      panelPassword: null
     });
 
     const user = await findCustomerByEmail(email);
-    req.session.userId = user.id;
-    res.redirect(resolveReturnTo(req) || consumeNextUrl(req));
+    const redirectTo = resolveReturnTo(req) || consumeNextUrl(req);
+    await establishSession(req, user.id);
+    res.redirect(redirectTo);
   } catch (error) {
     next(error);
   }
@@ -418,6 +437,14 @@ app.get("/forgot-password", (req, res) => {
 app.post("/forgot-password", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
+    const limitKey = rateLimitKey("forgot-password", req, email || "unknown");
+    if (isRateLimited(limitKey, 5, passwordResetRateLimitWindowMs)) {
+      return res.status(429).render("forgot-password", {
+        error: "重設密碼申請過於頻繁，請稍後再試。",
+        notice: null
+      });
+    }
+    recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
     const user = email ? await findCustomerByEmail(email) : null;
     if (!user) {
       return res.render("forgot-password", {
@@ -456,15 +483,24 @@ app.get("/reset-password/:token", async (req, res, next) => {
 app.post("/reset-password/:token", async (req, res, next) => {
   try {
     const token = req.params.token;
+    const limitKey = rateLimitKey("reset-password", req, String(token || "").slice(0, 16));
+    if (isRateLimited(limitKey, 8, passwordResetRateLimitWindowMs)) {
+      return res.status(429).render("reset-password", { token: null, error: "嘗試次數過多，請重新申請重設連結。", notice: null });
+    }
     const reset = await findValidPasswordReset(token);
-    if (!reset) return res.status(400).render("reset-password", { token: null, error: "重設連結無效或已過期。", notice: null });
+    if (!reset) {
+      recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
+      return res.status(400).render("reset-password", { token: null, error: "重設連結無效或已過期。", notice: null });
+    }
 
     const password = String(req.body.password || "");
     const confirmPassword = String(req.body.confirmPassword || "");
     if (!isValidCustomPassword(password)) {
+      recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
       return res.status(400).render("reset-password", { token, error: "密碼需大於 8 字元，且至少包含 1 個英文與 1 個數字。", notice: null });
     }
     if (password !== confirmPassword) {
+      recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
       return res.status(400).render("reset-password", { token, error: "兩次輸入的密碼不一致。", notice: null });
     }
 
@@ -480,28 +516,43 @@ app.post("/login", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const limitKey = rateLimitKey("login", req, email || "unknown");
+    if (isRateLimited(limitKey, 10, authRateLimitWindowMs)) {
+      return res.status(429).render("auth", { mode: "login", error: "登入嘗試次數過多，請稍後再試。" });
+    }
+    if (!isValidEmail(email) || !password) {
+      recordRateLimitAttempt(limitKey);
+      return res.status(401).render("auth", { mode: "login", error: "Email 或密碼錯誤。" });
+    }
     let user = await findCustomerByEmail(email);
     const localPasswordValid = user ? await verifyPassword(password, user.password_hash) : false;
     if (!localPasswordValid) {
       const panelPasswordValid = await verifyPanelPasswordLogin(email, password);
       if (!panelPasswordValid) {
+        recordRateLimitAttempt(limitKey);
         return res.status(401).render("auth", { mode: "login", error: "Email 或密碼錯誤。" });
       }
       user = await upsertCustomerFromPanelLogin(email, password, user);
     }
     if (!user) {
+      recordRateLimitAttempt(limitKey);
       return res.status(401).render("auth", { mode: "login", error: "Email 或密碼錯誤。" });
     }
 
-    req.session.userId = user.id;
-    res.redirect(resolveReturnTo(req) || consumeNextUrl(req));
+    clearRateLimit(limitKey);
+    const redirectTo = resolveReturnTo(req) || consumeNextUrl(req);
+    await establishSession(req, user.id);
+    res.redirect(redirectTo);
   } catch (error) {
     next(error);
   }
 });
 
 app.post("/logout", (req, res) => {
-  req.session.destroy(() => res.redirect("/"));
+  req.session.destroy(() => {
+    res.clearCookie("misthost.sid");
+    res.redirect("/");
+  });
 });
 
 app.get("/auth/:provider", (req, res) => {
@@ -529,7 +580,7 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 
     const existingCustomer = await findCustomerByEmail(profile.email);
     const generatedAccountPassword = existingCustomer?.password_hash ? null : generateRandomPassword(16);
-    const panelSyncPassword = generatedAccountPassword || existingCustomer?.panel_password_last || generateRandomPassword(16);
+    const panelSyncPassword = generatedAccountPassword || generateRandomPassword(16);
     const panelResult = await syncPterodactylUser({ email: profile.email, name: profile.name, password: panelSyncPassword });
     const passwordHash = generatedAccountPassword ? await hashPassword(generatedAccountPassword) : null;
 
@@ -555,12 +606,13 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
       providerId: profile.id,
       panelUserId: panelResult.id,
       panelStatus: panelResult.message,
-      accountPassword: generatedAccountPassword
+      accountPassword: null
     });
 
     const user = await findCustomerByEmail(profile.email);
-    req.session.userId = user.id;
-    res.redirect(consumeNextUrl(req));
+    const redirectTo = consumeNextUrl(req);
+    await establishSession(req, user.id);
+    res.redirect(redirectTo);
   } catch (error) {
     next(error);
   }
@@ -581,7 +633,7 @@ app.get("/account", requireAuth, async (req, res, next) => {
       orders,
       servers,
       minecraftEggs,
-      passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
+      passwordLabel: passwordDisplayLabel(res.locals.user),
       passwordError: null,
       passwordNotice: null,
       serverError: null,
@@ -689,12 +741,26 @@ app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
 
 app.post("/account/reset-panel-password", requireAuth, async (req, res, next) => {
   try {
+    const limitKey = rateLimitKey("account-password", req, res.locals.user.email);
+    if (isRateLimited(limitKey, 5, passwordResetRateLimitWindowMs)) {
+      const orders = await getAccountOrders(req.session.userId);
+      return res.status(429).render("account", {
+        activeTab: "profile",
+        orders,
+        passwordLabel: passwordDisplayLabel(res.locals.user),
+        passwordError: "重設密碼過於頻繁，請稍後再試。",
+        passwordNotice: null,
+        resetPassword: null,
+        statusLabels
+      });
+    }
+    recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
     const password = generateRandomPassword(16);
     const result = await resetPanelUserPassword({ email: res.locals.user.email, password });
     const passwordHash = await hashPassword(password);
     await query(`
       UPDATE customers
-      SET panel_password_last = :password,
+      SET panel_password_last = NULL,
           password_hash = :passwordHash,
           pterodactyl_user_id = COALESCE(:panelUserId, pterodactyl_user_id),
           pterodactyl_sync_status = :status
@@ -713,11 +779,11 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
       WHERE o.customer_id = :customerId
       ORDER BY o.created_at DESC
     `, { customerId: req.session.userId });
-    res.locals.user.panel_password_last = password;
+    res.locals.user.panel_password_last = null;
     res.render("account", {
       activeTab: "profile",
       orders,
-      passwordLabel: password,
+      passwordLabel: passwordDisplayLabel(res.locals.user),
       passwordError: null,
       passwordNotice: null,
       resetPassword: password,
@@ -736,7 +802,7 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
     const renderProfile = (locals) => res.status(locals.passwordError ? 400 : 200).render("account", {
       activeTab: "profile",
       orders,
-      passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
+      passwordLabel: passwordDisplayLabel(res.locals.user),
       passwordError: null,
       passwordNotice: null,
       resetPassword: null,
@@ -748,11 +814,16 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
       return renderProfile({ passwordError: "密碼需大於 8 字元，且至少包含 1 個英文與 1 個數字。" });
     }
 
+    const limitKey = rateLimitKey("account-password", req, res.locals.user.email);
+    if (isRateLimited(limitKey, 5, passwordResetRateLimitWindowMs)) {
+      return renderProfile({ passwordError: "重設密碼過於頻繁，請稍後再試。" });
+    }
+    recordRateLimitAttempt(limitKey, passwordResetRateLimitWindowMs);
     const result = await resetPanelUserPassword({ email: res.locals.user.email, password });
     const passwordHash = await hashPassword(password);
     await query(`
       UPDATE customers
-      SET panel_password_last = :password,
+      SET panel_password_last = NULL,
           password_hash = :passwordHash,
           pterodactyl_user_id = COALESCE(:panelUserId, pterodactyl_user_id),
           pterodactyl_sync_status = :status
@@ -764,9 +835,10 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
       panelUserId: result.id,
       status: result.message
     });
-    res.locals.user.panel_password_last = password;
+    res.locals.user.panel_password_last = null;
     return renderProfile({
-      passwordLabel: password,
+      passwordLabel: passwordDisplayLabel(res.locals.user),
+      resetPassword: password,
       passwordNotice: "密碼已更新，可用於本店登入與 Panel 登入。"
     });
   } catch (error) {
@@ -990,6 +1062,100 @@ app.use((error, req, res, next) => {
   console.error(error);
   res.status(500).render("error", { message: "系統發生錯誤，請稍後再試。" });
 });
+
+function securityHeaders(req, res, next) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "same-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Content-Security-Policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: https://cdn.simpleicons.org",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+    "form-action 'self' https://payment.ecpay.com.tw https://payment-stage.ecpay.com.tw"
+  ].join("; "));
+  next();
+}
+
+function csrfProtection(req, res, next) {
+  getCsrfToken(req);
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method) || req.path.startsWith("/payments/ecpay/")) {
+    return next();
+  }
+
+  const expected = req.session.csrfToken;
+  const received = String(req.body?._csrf || req.get("X-CSRF-Token") || "");
+  if (safeTokenEqual(expected, received)) return next();
+  return res.status(403).type("text/plain").send("Invalid CSRF token.");
+}
+
+function getCsrfToken(req) {
+  if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  return req.session.csrfToken;
+}
+
+function safeTokenEqual(expected, received) {
+  if (!expected || !received) return false;
+  const left = Buffer.from(String(expected));
+  const right = Buffer.from(String(received));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function isSecureCookieEnabled() {
+  return Boolean(config.session?.secure) || String(config.site?.baseUrl || "").startsWith("https://");
+}
+
+async function establishSession(req, userId) {
+  const cart = req.session.cart;
+  const nextUrl = req.session.nextUrl;
+  await new Promise((resolve, reject) => {
+    req.session.regenerate((error) => (error ? reject(error) : resolve()));
+  });
+  req.session.userId = userId;
+  if (cart) req.session.cart = cart;
+  if (nextUrl) req.session.nextUrl = nextUrl;
+  req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+}
+
+function clientIp(req) {
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function rateLimitKey(scope, req, subject = "") {
+  return `${scope}:${clientIp(req)}:${String(subject).slice(0, 256)}`;
+}
+
+function isRateLimited(key, maxAttempts, windowMs) {
+  pruneRateLimits();
+  const entry = rateLimitStore.get(key);
+  return Boolean(entry && entry.resetAt > Date.now() && entry.count >= maxAttempts);
+}
+
+function recordRateLimitAttempt(key, windowMs = authRateLimitWindowMs) {
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearRateLimit(key) {
+  rateLimitStore.delete(key);
+}
+
+function pruneRateLimits() {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetAt <= now) rateLimitStore.delete(key);
+  }
+}
 
 function getSessionCart(req) {
   if (!req.session.cart || !Array.isArray(req.session.cart.items)) req.session.cart = { items: [] };
@@ -1790,7 +1956,7 @@ async function resetCustomerPassword(user, password) {
   const passwordHash = await hashPassword(password);
   await query(`
     UPDATE customers
-    SET panel_password_last = :password,
+    SET panel_password_last = NULL,
         password_hash = :passwordHash,
         pterodactyl_user_id = COALESCE(:panelUserId, pterodactyl_user_id),
         pterodactyl_sync_status = :status
@@ -1844,6 +2010,14 @@ function isValidCustomPassword(password) {
   return password.length > 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "")) && String(email || "").length <= 254;
+}
+
+function passwordDisplayLabel(user) {
+  return user?.password_hash ? "已設定（不在頁面顯示）" : "尚未設定";
+}
+
 async function verifyPanelPasswordLogin(email, password) {
   try {
     return await verifyPanelCredentials({ email, password });
@@ -1871,7 +2045,7 @@ async function upsertCustomerFromPanelLogin(email, password, existingUser) {
     passwordHash,
     panelUserId: panelUser?.id || null,
     panelStatus: "Panel password verified.",
-    panelPassword: password
+    panelPassword: null
   });
   return findCustomerByEmail(email);
 }

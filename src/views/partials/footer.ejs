@@ -10,5 +10,28 @@
         <a href="/#support">取得支援</a>
       </div>
     </footer>
+    <script>
+      window.MistHostCsrfToken = "<%= csrfToken %>";
+      window.injectCsrfInputs = () => {
+        document.querySelectorAll("form").forEach((form) => {
+          if (String(form.method || "get").toLowerCase() !== "post") return;
+          const action = form.getAttribute("action") || window.location.href;
+          let url;
+          try {
+            url = new URL(action, window.location.origin);
+          } catch {
+            return;
+          }
+          if (url.origin !== window.location.origin) return;
+          if (form.querySelector("input[name='_csrf']")) return;
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = "_csrf";
+          input.value = window.MistHostCsrfToken;
+          form.prepend(input);
+        });
+      };
+      window.injectCsrfInputs();
+    </script>
   </body>
 </html>

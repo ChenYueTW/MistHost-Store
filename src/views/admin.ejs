@@ -200,6 +200,7 @@
       const nextContent = doc.querySelector(".admin-content");
       if (!response.ok || !nextContent) throw new Error("admin update failed");
       document.querySelector(".admin-content").replaceWith(nextContent);
+      window.injectCsrfInputs?.();
       const nextProductCategory = document.querySelector(".product-category-filter");
       if (nextProductCategory && selectedProductCategory) nextProductCategory.value = selectedProductCategory;
       applyProductCategoryFilter();
