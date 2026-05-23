@@ -17,6 +17,9 @@
             <div>
               <strong><%= item.product.name %></strong>
               <span class="cart-product-category"><%= item.product.category %></span>
+              <% if (item.options?.minecraftEggName) { %>
+                <span class="cart-product-category">伺服器類型：<%= item.options.minecraftEggName %></span>
+              <% } %>
             </div>
             <div class="quantity-control" aria-label="調整數量">
               <form class="quantity-form" method="post" action="/cart/quantity/<%= item.product.id %>">

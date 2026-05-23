@@ -18,6 +18,12 @@
           <div class="cart-row">
             <div>
               <strong><%= item.product_name %></strong>
+              <% if (item.server_type_name) { %>
+                <span>伺服器類型 <%= item.server_type_name %></span>
+              <% } %>
+              <% if (item.provision_status) { %>
+                <span><%= statusLabels[item.provision_status] || item.provision_status %></span>
+              <% } %>
               <span>數量 <%= item.quantity %></span>
             </div>
             <strong>NT$ <%= item.unit_price * item.quantity %></strong>

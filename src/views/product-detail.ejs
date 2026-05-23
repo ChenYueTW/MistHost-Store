@@ -5,9 +5,25 @@
     <p class="eyebrow"><%= product.category %></p>
     <h1><%= product.name %></h1>
     <p><%= product.description %></p>
+    <% if (error) { %>
+      <div class="alert"><%= error %></div>
+    <% } %>
 
     <div class="config-box">
       <h2>產品設定</h2>
+      <% if (String(product.category).toLowerCase().includes('minecraft')) { %>
+        <label>
+          伺服器類型
+          <select name="minecraftEggId" required <%= minecraftEggs.length === 0 ? 'disabled' : '' %>>
+            <% if (minecraftEggs.length === 0) { %>
+              <option value="">無法載入 Pterodactyl Eggs</option>
+            <% } %>
+            <% minecraftEggs.forEach((egg) => { %>
+              <option value="<%= egg.id %>"><%= egg.name %></option>
+            <% }) %>
+          </select>
+        </label>
+      <% } %>
       <label>
         付款週期
         <select name="period">

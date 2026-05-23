@@ -57,9 +57,13 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_name TEXT NOT NULL,
   unit_price INTEGER NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
+  server_type_egg_id INTEGER NULL,
+  server_type_nest_id INTEGER NULL,
+  server_type_name TEXT NULL,
   provision_status TEXT NULL,
   provision_message TEXT NULL,
   pterodactyl_server_id INTEGER NULL,
+  pterodactyl_server_ids TEXT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id),
   CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id)
@@ -124,6 +128,15 @@ const addOrderColumn = (name, definition) => {
 addOrderColumn("subtotal", "INTEGER NULL");
 addOrderColumn("discount_amount", "INTEGER NOT NULL DEFAULT 0");
 addOrderColumn("coupon_code", "TEXT NULL");
+
+const orderItemColumns = db.prepare("PRAGMA table_info(order_items)").all().map((column) => column.name);
+const addOrderItemColumn = (name, definition) => {
+  if (!orderItemColumns.includes(name)) db.exec(`ALTER TABLE order_items ADD COLUMN ${name} ${definition}`);
+};
+addOrderItemColumn("server_type_egg_id", "INTEGER NULL");
+addOrderItemColumn("server_type_nest_id", "INTEGER NULL");
+addOrderItemColumn("server_type_name", "TEXT NULL");
+addOrderItemColumn("pterodactyl_server_ids", "TEXT NULL");
 
 const count = db.prepare("SELECT COUNT(*) AS count FROM products").get().count;
 if (count === 0) {

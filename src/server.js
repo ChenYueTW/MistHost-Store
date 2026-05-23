@@ -18,7 +18,15 @@ import { config, paths, publicConfig } from "./config.js";
 import { findProduct, getActiveProducts, getProductsByCategory, pool, query } from "./db.js";
 import { paymentForm, verifyCheckMacValue } from "./ecpay.js";
 import { sendPasswordResetEmail } from "./mailer.js";
-import { ensurePanelUser, getPanelUserByEmail, listPanelNodes, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
+import {
+  ensurePanelUser,
+  getPanelUserByEmail,
+  listMinecraftEggs,
+  listPanelNodes,
+  provisionServer,
+  resetPanelUserPassword,
+  verifyPanelCredentials
+} from "./pterodactyl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -99,7 +107,8 @@ app.get("/product/:productId", async (req, res, next) => {
   try {
     const product = await findProduct(req.params.productId);
     if (!product) return res.status(404).render("error", { message: "找不到方案。" });
-    res.render("product-detail", { product, error: null });
+    const minecraftEggs = isMinecraftProduct(product) ? await getMinecraftEggOptions() : [];
+    res.render("product-detail", { product, error: null, minecraftEggs });
   } catch (error) {
     next(error);
   }
@@ -109,12 +118,24 @@ app.post("/cart/add/:productId", async (req, res, next) => {
   try {
     const product = await findProduct(req.params.productId);
     if (!product) return res.status(404).render("error", { message: "找不到方案。" });
+    const selection = await resolveProductSelection(req, product);
+    if (selection.error) {
+      return res.status(400).render("product-detail", {
+        product,
+        error: selection.error,
+        minecraftEggs: selection.minecraftEggs || []
+      });
+    }
     const quantity = Math.max(1, Math.min(10, Number.parseInt(req.body.quantity || "1", 10) || 1));
     const cart = getSessionCart(req);
     const productId = Number(product.id);
     const existing = cart.items.find((item) => Number(item.productId) === productId);
-    if (existing) existing.quantity = Math.min(10, existing.quantity + quantity);
-    else cart.items.push({ productId, quantity });
+    if (existing) {
+      existing.quantity = Math.min(10, existing.quantity + quantity);
+      existing.options = selection.options;
+    } else {
+      cart.items.push({ productId, quantity, options: selection.options });
+    }
     req.session.cart = cart;
     res.redirect(req.body.intent === "checkout" ? "/checkout" : "/cart");
   } catch (error) {
@@ -263,14 +284,35 @@ app.post("/checkout", requireAuth, async (req, res, next) => {
 
     for (const item of cart.items) {
       await connection.execute(`
-        INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
-        VALUES (:orderId, :productId, :productName, :unitPrice, :quantity)
+        INSERT INTO order_items (
+          order_id,
+          product_id,
+          product_name,
+          unit_price,
+          quantity,
+          server_type_egg_id,
+          server_type_nest_id,
+          server_type_name
+        )
+        VALUES (
+          :orderId,
+          :productId,
+          :productName,
+          :unitPrice,
+          :quantity,
+          :serverTypeEggId,
+          :serverTypeNestId,
+          :serverTypeName
+        )
       `, {
         orderId: orderResult.insertId,
         productId: item.product.id,
         productName: item.product.name,
         unitPrice: item.product.price,
-        quantity: item.quantity
+        quantity: item.quantity,
+        serverTypeEggId: item.options?.minecraftEggId || null,
+        serverTypeNestId: item.options?.minecraftNestId || null,
+        serverTypeName: item.options?.minecraftEggName || null
       });
     }
     await connection.commit();
@@ -856,7 +898,7 @@ async function buildCart(req) {
     const product = await findProduct(productId);
     if (!product) continue;
     const quantity = Math.max(1, Number(item.quantity) || 1);
-    items.push({ product, quantity, lineTotal: product.price * quantity });
+    items.push({ product, quantity, options: item.options || {}, lineTotal: product.price * quantity });
   }
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const coupon = sessionCart.couponCode ? await findCoupon(sessionCart.couponCode) : null;
@@ -1022,7 +1064,113 @@ async function handleEcpayNotification(payload) {
     paymentType: payload.PaymentType || order.ecpay_payment_type || null
   });
 
-  return { ok: true, orderId: order.id, status: "paid" };
+  const provision = await provisionPaidOrder(order.id);
+  return { ok: true, orderId: order.id, status: provision.status, provision };
+}
+
+async function provisionPaidOrder(orderId) {
+  const orderRows = await query(`
+    SELECT o.*, c.email, c.name AS customer_name, c.panel_password_last
+    FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    WHERE o.id = :orderId
+    LIMIT 1
+  `, { orderId });
+  const order = orderRows[0];
+  if (!order) return { status: "manual", message: "Order not found." };
+
+  const items = await query(`
+    SELECT oi.*,
+           p.name,
+           p.slug,
+           p.category,
+           p.description,
+           p.price,
+           p.period,
+           p.specs,
+           p.provision_config
+    FROM order_items oi
+    JOIN products p ON p.id = oi.product_id
+    WHERE oi.order_id = :orderId
+    ORDER BY oi.id ASC
+  `, { orderId });
+
+  const customer = {
+    email: order.email,
+    name: order.customer_name,
+    panel_password_last: order.panel_password_last
+  };
+  const itemSummaries = [];
+  const allServerIds = [];
+
+  for (const item of items) {
+    if (item.provision_status === "provisioned") {
+      const existingIds = parseServerIds(item.pterodactyl_server_ids, item.pterodactyl_server_id);
+      allServerIds.push(...existingIds);
+      itemSummaries.push({ status: "provisioned", message: item.provision_message || null, serverIds: existingIds });
+      continue;
+    }
+
+    const nodeSetting = await findCategoryNodeSetting(item.category);
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+    const results = [];
+
+    for (let index = 0; index < quantity; index += 1) {
+      try {
+        results.push(await provisionServer({
+          customer,
+          product: item,
+          order,
+          orderItem: { ...item, id: `${item.id}-${index + 1}` },
+          nodeId: nodeSetting?.node_id
+        }));
+      } catch (error) {
+        results.push({
+          status: "manual",
+          message: error.response?.data?.errors?.[0]?.detail || error.message
+        });
+      }
+    }
+
+    const serverIds = results.map((result) => result.pterodactylServerId).filter(Boolean);
+    const itemStatus = results.every((result) => result.status === "provisioned") ? "provisioned" : "manual";
+    const messages = results.map((result) => result.message).filter(Boolean);
+    const message = messages.length > 0 ? messages.join(" / ") : null;
+    allServerIds.push(...serverIds);
+    itemSummaries.push({ status: itemStatus, message, serverIds });
+
+    await query(`
+      UPDATE order_items
+      SET provision_status = :status,
+          provision_message = :message,
+          pterodactyl_server_id = :serverId,
+          pterodactyl_server_ids = :serverIds
+      WHERE id = :id
+    `, {
+      id: item.id,
+      status: itemStatus,
+      message,
+      serverId: serverIds[0] || null,
+      serverIds: serverIds.length > 0 ? JSON.stringify(serverIds) : null
+    });
+  }
+
+  const finalStatus = itemSummaries.length > 0 && itemSummaries.every((item) => item.status === "provisioned") ? "provisioned" : "manual";
+  const finalMessage = itemSummaries.map((item) => item.message).filter(Boolean).join(" / ") || null;
+  await query(`
+    UPDATE orders
+    SET status = :status,
+        provision_message = :message,
+        pterodactyl_server_id = :serverId
+    WHERE id = :id
+  `, {
+    id: order.id,
+    status: finalStatus,
+    message: finalMessage,
+    serverId: allServerIds[0] || null
+  });
+
+  return { status: finalStatus, message: finalMessage, serverIds: allServerIds };
 }
 
 function recordEcpayCallback(source, payload, result) {
@@ -1046,6 +1194,62 @@ async function getPanelNodesForAdmin() {
   } catch {
     return [];
   }
+}
+
+async function getMinecraftEggOptions() {
+  try {
+    return await listMinecraftEggs();
+  } catch (error) {
+    console.error("Failed to load Minecraft eggs:", error.response?.data || error.message);
+    return [];
+  }
+}
+
+function isMinecraftProduct(product) {
+  return String(product.category || "").toLowerCase().includes("minecraft");
+}
+
+async function resolveProductSelection(req, product) {
+  if (!isMinecraftProduct(product)) return { options: {} };
+
+  const minecraftEggs = await getMinecraftEggOptions();
+  if (minecraftEggs.length === 0) {
+    return {
+      error: "目前無法從 Pterodactyl 讀取 Minecraft 伺服器類型，請稍後再試。",
+      minecraftEggs
+    };
+  }
+
+  const eggId = Number(req.body.minecraftEggId || 0);
+  const selected = minecraftEggs.find((egg) => Number(egg.id) === eggId);
+  if (!selected) {
+    return {
+      error: "請選擇要購買的 Minecraft 伺服器類型。",
+      minecraftEggs
+    };
+  }
+
+  return {
+    options: {
+      minecraftEggId: selected.id,
+      minecraftNestId: selected.nest,
+      minecraftEggName: selected.name
+    },
+    minecraftEggs
+  };
+}
+
+async function findCategoryNodeSetting(category) {
+  const rows = await query("SELECT * FROM category_node_settings WHERE category = :category LIMIT 1", { category });
+  return rows[0] ?? null;
+}
+
+function parseServerIds(rawServerIds, fallbackServerId) {
+  try {
+    const parsed = JSON.parse(rawServerIds || "[]");
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+  } catch {}
+  return fallbackServerId ? [fallbackServerId] : [];
 }
 
 function parseProductSpecs(specs) {

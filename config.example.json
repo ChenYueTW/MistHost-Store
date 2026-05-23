@@ -15,6 +15,7 @@
   "pterodactyl": {
     "panelUrl": "https://panel.example.com",
     "apiKey": "replace-with-pterodactyl-application-api-key",
+    "minecraftNestId": 1,
     "defaultUserPassword": "replace-with-default-password",
     "enabled": false
   },

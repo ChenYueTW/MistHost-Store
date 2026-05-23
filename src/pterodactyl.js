@@ -49,6 +49,19 @@ export async function listPanelNodes() {
   return (data.data || []).map((node) => node.attributes);
 }
 
+export async function listMinecraftEggs() {
+  if (!config.pterodactyl.enabled) return [];
+
+  const api = client();
+  const nestId = await resolveMinecraftNestId(api);
+  if (!nestId) return [];
+
+  const { data } = await api.get(`/nests/${nestId}/eggs`, {
+    params: { include: "variables", per_page: 100 }
+  });
+  return (data.data || []).map((egg) => normalizeEgg(egg.attributes));
+}
+
 export async function resetPanelUserPassword({ email, password }) {
   if (!config.pterodactyl.enabled) {
     return { status: "disabled", id: null, message: "Pterodactyl sync is disabled in config.json." };
@@ -99,44 +112,54 @@ export async function verifyPanelCredentials({ email, password }) {
   return Boolean(login.data?.data?.complete || login.data?.data?.confirmation_token);
 }
 
-export async function provisionServer({ customer, product, order }) {
+export async function provisionServer({ customer, product, order, orderItem, nodeId }) {
   if (!config.pterodactyl.enabled) {
     return { status: "manual", message: "Pterodactyl provisioning is disabled in config.json." };
   }
 
   const provisionConfig = JSON.parse(product.provision_config || "{}");
-  const required = ["egg", "nest", "location", "allocation", "docker_image", "startup"];
-  const missing = required.filter((key) => !provisionConfig[key]);
-  if (missing.length > 0) {
-    return { status: "manual", message: `Missing product provision_config: ${missing.join(", ")}` };
-  }
+  const selectedNestId = Number(orderItem?.server_type_nest_id || provisionConfig.nest || 0);
+  const selectedEggId = Number(orderItem?.server_type_egg_id || provisionConfig.egg || 0);
+  if (!selectedNestId || !selectedEggId) return { status: "manual", message: "Missing selected Pterodactyl egg." };
+
+  const api = client();
+  const egg = await getEgg(api, selectedNestId, selectedEggId);
+  const dockerImage = provisionConfig.docker_image || egg.docker_image || firstDockerImage(egg.docker_images);
+  const startup = provisionConfig.startup || egg.startup;
+  if (!dockerImage || !startup) return { status: "manual", message: "Selected egg is missing docker image or startup command." };
+
+  if (!provisionConfig.allocation && !nodeId) return { status: "manual", message: "No node is configured for this product category." };
+  const allocationId = provisionConfig.allocation || await findAvailableAllocation(api, nodeId);
+  if (!allocationId) return { status: "manual", message: "Selected node has no available allocation." };
 
   const panelUser = await ensurePanelUser({
     email: customer.email,
     name: customer.name,
-    password: config.pterodactyl.defaultUserPassword
+    password: customer.panel_password_last || config.pterodactyl.defaultUserPassword
   });
   if (!panelUser.id) {
     return { status: "manual", message: panelUser.message || "Pterodactyl user sync did not return a user id." };
   }
 
-  const api = client();
   const payload = {
-    name: `${product.name} #${order.id}`,
+    name: `${product.name} #${order.id}-${orderItem?.id || "1"}`,
     user: panelUser.id,
-    egg: provisionConfig.egg,
-    nest: provisionConfig.nest,
-    docker_image: provisionConfig.docker_image,
-    startup: provisionConfig.startup,
-    environment: provisionConfig.environment ?? {},
-    limits: provisionConfig.limits ?? { memory: 1024, swap: 0, disk: 10240, io: 500, cpu: 100 },
+    egg: selectedEggId,
+    nest: selectedNestId,
+    docker_image: dockerImage,
+    startup,
+    environment: {
+      ...defaultEggEnvironment(egg),
+      ...(provisionConfig.environment ?? {})
+    },
+    limits: provisionConfig.limits ?? limitsFromProduct(product),
     feature_limits: provisionConfig.feature_limits ?? { databases: 1, backups: 1, allocations: 1 },
     allocation: {
-      default: provisionConfig.allocation
+      default: allocationId
     },
-    deploy: provisionConfig.deploy,
     start_on_completion: true
   };
+  if (provisionConfig.deploy) payload.deploy = provisionConfig.deploy;
 
   const { data } = await api.post("/servers", payload);
   return { status: "provisioned", pterodactylServerId: data.attributes.id };
@@ -147,4 +170,99 @@ async function findPanelUser(api, email) {
     params: { "filter[email]": email }
   });
   return response.data.data?.[0]?.attributes ?? null;
+}
+
+async function resolveMinecraftNestId(api) {
+  const configuredNestId = Number(config.pterodactyl.minecraftNestId || 0);
+  if (configuredNestId) return configuredNestId;
+
+  const { data } = await api.get("/nests", { params: { per_page: 100 } });
+  const nest = (data.data || [])
+    .map((entry) => entry.attributes)
+    .find((entry) => String(entry.name || "").toLowerCase().includes("minecraft"));
+  return nest?.id || null;
+}
+
+async function getEgg(api, nestId, eggId) {
+  const { data } = await api.get(`/nests/${nestId}/eggs/${eggId}`, {
+    params: { include: "variables" }
+  });
+  return normalizeEgg(data.attributes);
+}
+
+function normalizeEgg(egg) {
+  const relationships = egg.relationships || {};
+  const variables = relationships.variables?.data || egg.variables?.data || egg.variables || [];
+  return {
+    id: egg.id,
+    uuid: egg.uuid,
+    nest: egg.nest,
+    name: egg.name,
+    description: egg.description,
+    docker_image: egg.docker_image,
+    docker_images: egg.docker_images,
+    startup: egg.startup,
+    variables: variables.map((variable) => variable.attributes || variable)
+  };
+}
+
+function firstDockerImage(images) {
+  if (!images || typeof images !== "object") return null;
+  return Object.values(images)[0] || null;
+}
+
+function defaultEggEnvironment(egg) {
+  return (egg.variables || []).reduce((environment, variable) => {
+    const key = variable.env_variable;
+    if (key) environment[key] = variable.default_value ?? "";
+    return environment;
+  }, {});
+}
+
+function limitsFromProduct(product) {
+  const specs = parseSpecs(product.specs);
+  return {
+    memory: Math.max(512, specs.memoryGb * 1024),
+    swap: 0,
+    disk: Math.max(1024, specs.diskGb * 1024),
+    io: 500,
+    cpu: Math.max(100, specs.cpuCores * 100)
+  };
+}
+
+function parseSpecs(rawSpecs) {
+  try {
+    const specs = typeof rawSpecs === "string" ? JSON.parse(rawSpecs || "{}") : rawSpecs || {};
+    return {
+      cpuCores: extractNumber(specs.CPU, 1),
+      memoryGb: extractNumber(specs.Memory, 1),
+      diskGb: extractNumber(specs.Disk, 10)
+    };
+  } catch {
+    return { cpuCores: 1, memoryGb: 1, diskGb: 10 };
+  }
+}
+
+function extractNumber(value, fallback) {
+  const match = String(value || "").match(/\d+/);
+  return match ? Number.parseInt(match[0], 10) || fallback : fallback;
+}
+
+async function findAvailableAllocation(api, nodeId) {
+  const selectedNodeId = Number(nodeId || 0);
+  if (!selectedNodeId) return null;
+
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const { data } = await api.get(`/nodes/${selectedNodeId}/allocations`, {
+      params: { page, per_page: 100 }
+    });
+    const allocation = (data.data || []).map((entry) => entry.attributes).find((entry) => !entry.assigned);
+    if (allocation) return allocation.id;
+    totalPages = Number(data.meta?.pagination?.total_pages || 1);
+    page += 1;
+  } while (page <= totalPages);
+
+  return null;
 }
