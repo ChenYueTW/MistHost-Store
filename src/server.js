@@ -137,7 +137,8 @@ app.post("/cart/add/:productId", async (req, res, next) => {
       cart.items.push({ productId, quantity, options: selection.options });
     }
     req.session.cart = cart;
-    res.redirect(req.body.intent === "checkout" ? "/checkout" : "/cart");
+    const categoryUrl = `/products/${encodeURIComponent(product.category)}`;
+    res.redirect(req.body.intent === "checkout" ? "/cart" : categoryUrl);
   } catch (error) {
     next(error);
   }
