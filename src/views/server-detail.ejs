@@ -2,21 +2,14 @@
 
 <section class="account-shell">
   <aside class="account-sidebar">
-    <p class="eyebrow">Server</p>
-    <h1>伺服器管理</h1>
-    <a href="/account?tab=servers">我的伺服器</a>
-    <a href="/account">我的訂單</a>
+    <p class="eyebrow">Account</p>
+    <h1>會員中心</h1>
+    <a href="/account?tab=orders">我的訂單</a>
+    <a href="/account?tab=profile">個人資料</a>
+    <a class="active" href="/account?tab=servers">我的伺服器</a>
   </aside>
 
   <section class="account-content">
-    <div class="server-detail-hero">
-      <div>
-        <h2><%= server.name %></h2>
-        <span class="server-state <%= server.runtimeClass || 'syncing' %>"><%= server.runtimeLabel || server.statusLabel %></span>
-      </div>
-      <a class="button primary" href="<%= server.panelUrl %>" target="_blank" rel="noreferrer">前往控制台</a>
-    </div>
-
     <% if (error) { %>
       <div class="alert"><%= error %></div>
     <% } %>
@@ -24,8 +17,10 @@
       <div class="notice"><%= notice %></div>
     <% } %>
 
-    <form class="server-detail-form" method="post" action="/account/servers/<%= server.id %>">
-      <div class="server-detail-grid">
+    <form class="server-detail-panel" method="post" action="/account/servers/<%= server.id %>">
+      <div class="server-detail-main">
+        <a class="button primary server-console-button" href="<%= server.panelUrl %>" target="_blank" rel="noreferrer">前往控制台</a>
+        <h2><%= server.name %></h2>
         <label>
           伺服器名稱
           <input name="name" value="<%= server.name %>" maxlength="80" required>
@@ -39,8 +34,16 @@
             <% }) %>
           </select>
         </label>
+        <button class="button ghost server-save-button" type="submit">儲存設定</button>
       </div>
-      <button class="button ghost server-save-button" type="submit">儲存設定</button>
+      <aside class="server-detail-status">
+        <div class="server-mini-icon <%= server.runtimeClass || 'syncing' %>" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <strong><%= server.runtimeLabel || server.statusLabel %></strong>
+      </aside>
     </form>
   </section>
 </section>

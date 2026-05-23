@@ -1513,7 +1513,7 @@ async function getPanelServersForAccount(user) {
         panelUrl: panelServerUrl(server.identifier),
         statusLabel: statusLabels[status] || status,
         runtimeState: null,
-        runtimeLabel: server.installed ? "狀態同步中" : "開啟中",
+        runtimeLabel: server.installed ? "已開啟" : "開啟中",
         runtimeClass: server.installed ? "syncing" : "starting"
       };
     });
@@ -1558,12 +1558,12 @@ async function getRuntimeState(identifier) {
 
 function runtimeStateLabel(state) {
   const labels = {
-    running: "運作中",
-    offline: "停止",
+    running: "已開啟",
+    offline: "未開啟",
     starting: "開啟中",
-    stopping: "關閉中"
+    stopping: "開啟中"
   };
-  return labels[state] || "狀態同步中";
+  return labels[state] || "開啟中";
 }
 
 function runtimeStateClass(state) {

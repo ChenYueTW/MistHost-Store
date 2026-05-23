@@ -118,17 +118,13 @@
           <% servers.forEach((server) => { %>
             <a class="server-row server-row-link" href="/account/servers/<%= server.id %>">
               <div class="server-row-main">
-                <div class="server-row-title">
-                  <strong><%= server.name %></strong>
-                  <em class="<%= server.status === 'provisioned' ? 'ready' : 'installing' %>"><%= server.statusLabel %></em>
-                </div>
-                <div class="server-row-meta">
-                  <span><%= server.product_name || 'Pterodactyl Server' %></span>
-                  <span>Egg：<%= server.egg_name || server.egg_id || '-' %></span>
-                  <span>訂單：<%= server.order_no || '-' %></span>
-                </div>
+                <strong><%= server.name %></strong>
+                <span><%= server.product_name || 'Pterodactyl Server' %> · Egg <%= server.egg_name || server.egg_id || '-' %></span>
               </div>
-              <span class="server-row-action">管理</span>
+              <div class="server-row-side">
+                <em class="<%= server.status === 'provisioned' ? 'ready' : 'installing' %>"><%= server.statusLabel %></em>
+                <span>管理</span>
+              </div>
             </a>
           <% }) %>
         </div>
