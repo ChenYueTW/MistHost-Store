@@ -118,8 +118,15 @@ a {
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  color: white;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .nav {

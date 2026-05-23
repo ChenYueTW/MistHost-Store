@@ -4,12 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><%= config.site.name %></title>
-    <link rel="stylesheet" href="/styles.css?v=<%= config.site.assetVersion || '20260523-server-layout' %>">
+    <link rel="icon" type="image/png" href="/images/misthost-logo.png">
+    <link rel="apple-touch-icon" href="/images/misthost-logo.png">
+    <link rel="stylesheet" href="/styles.css?v=<%= config.site.assetVersion || '20260523-brand-logo' %>">
   </head>
   <body>
     <header class="topbar">
       <a class="brand" href="/">
-        <span class="brand-mark">M</span>
+        <span class="brand-mark"><img src="/images/misthost-logo.png" alt="" aria-hidden="true"></span>
         <span><%= config.site.name %></span>
       </a>
       <nav class="nav">
