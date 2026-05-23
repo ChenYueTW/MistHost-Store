@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "description": "MistHost game and cloud hosting storefront with Pterodactyl and ECPay integration.",
   "type": "module",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
-    "dev": "node src/server.js",
-    "watch": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "node index.js",
+    "watch": "node --watch index.js",
+    "start": "node index.js",
     "db:migrate": "node src/scripts/migrate.js"
   },
   "dependencies": {
