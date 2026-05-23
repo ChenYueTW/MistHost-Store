@@ -21,6 +21,7 @@ import { sendPasswordResetEmail } from "./mailer.js";
 import {
   ensurePanelUser,
   getPanelServer,
+  getPanelServerPowerState,
   getPanelUserByEmail,
   listMinecraftEggs,
   listPanelNodes,
@@ -605,6 +606,43 @@ app.get("/account/servers/:id", requireAuth, async (req, res, next) => {
       notice: null,
       statusLabels
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/account/servers/:id", requireAuth, async (req, res, next) => {
+  try {
+    const server = await getOwnedCustomerServer(res.locals.user, req.params.id);
+    if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
+
+    const name = String(req.body.name || "").trim();
+    if (name && name !== server.name) {
+      await renamePanelServer({ serverId: server.pterodactyl_server_id, name });
+      await query("UPDATE customer_servers SET name = :name WHERE pterodactyl_server_id = :serverId", {
+        serverId: server.pterodactyl_server_id,
+        name
+      });
+    }
+
+    const minecraftEggs = await getMinecraftEggOptions();
+    const eggId = Number(req.body.minecraftEggId || 0);
+    const selected = minecraftEggs.find((egg) => Number(egg.id) === eggId);
+    if (selected && Number(selected.id) !== Number(server.egg_id)) {
+      await updatePanelServerEgg({ serverId: server.pterodactyl_server_id, nestId: selected.nest, eggId: selected.id });
+      await query(`
+        UPDATE customer_servers
+        SET egg_id = :eggId,
+            nest_id = :nestId,
+            egg_name = :eggName,
+            status = 'manual',
+            installed = 0
+        WHERE pterodactyl_server_id = :serverId
+      `, { serverId: server.pterodactyl_server_id, eggId: selected.id, nestId: selected.nest, eggName: selected.name });
+      await updateOrderProvisioningStatus(server.order_id);
+    }
+
+    res.redirect(`/account/servers/${encodeURIComponent(req.params.id)}`);
   } catch (error) {
     next(error);
   }
@@ -1473,7 +1511,10 @@ async function getPanelServersForAccount(user) {
         product_name: cached.product_name || "Pterodactyl Server",
         order_no: cached.order_no || "-",
         panelUrl: panelServerUrl(server.identifier),
-        statusLabel: statusLabels[status] || status
+        statusLabel: statusLabels[status] || status,
+        runtimeState: null,
+        runtimeLabel: server.installed ? "狀態同步中" : "開啟中",
+        runtimeClass: server.installed ? "syncing" : "starting"
       };
     });
   } catch (error) {
@@ -1485,10 +1526,52 @@ async function getPanelServersForAccount(user) {
 async function getOwnedCustomerServer(user, serverId) {
   const panelServers = await getPanelServersForAccount(user);
   const panelServer = panelServers.find((server) => Number(server.pterodactyl_server_id) === Number(serverId));
-  if (panelServer) return panelServer;
+  if (panelServer) return withRuntimeState(panelServer);
 
   const rows = await query("SELECT * FROM customer_servers WHERE pterodactyl_server_id = :serverId AND customer_id = :customerId LIMIT 1", { serverId, customerId: user.id });
-  return rows[0] ?? null;
+  return rows[0] ? withRuntimeState({
+    ...rows[0],
+    id: rows[0].pterodactyl_server_id,
+    panelUrl: panelServerUrl(rows[0].pterodactyl_identifier),
+    statusLabel: statusLabels[rows[0].status] || rows[0].status
+  }) : null;
+}
+
+async function withRuntimeState(server) {
+  const runtimeState = await getRuntimeState(server.pterodactyl_identifier);
+  if (!runtimeState) return server;
+  return {
+    ...server,
+    runtimeState,
+    runtimeLabel: runtimeStateLabel(runtimeState),
+    runtimeClass: runtimeStateClass(runtimeState)
+  };
+}
+
+async function getRuntimeState(identifier) {
+  try {
+    return await getPanelServerPowerState(identifier);
+  } catch {
+    return null;
+  }
+}
+
+function runtimeStateLabel(state) {
+  const labels = {
+    running: "運作中",
+    offline: "停止",
+    starting: "開啟中",
+    stopping: "關閉中"
+  };
+  return labels[state] || "狀態同步中";
+}
+
+function runtimeStateClass(state) {
+  if (state === "running") return "running";
+  if (state === "offline") return "offline";
+  if (state === "starting") return "starting";
+  if (state === "stopping") return "stopping";
+  return "syncing";
 }
 
 async function getMinecraftEggOptions() {

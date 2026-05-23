@@ -25,6 +25,10 @@ function applyEnvironmentOverrides(baseConfig) {
     nextConfig.database = nextConfig.database || {};
     nextConfig.database.file = process.env.DATABASE_FILE;
   }
+  if (process.env.PTERODACTYL_CLIENT_API_KEY) {
+    nextConfig.pterodactyl = nextConfig.pterodactyl || {};
+    nextConfig.pterodactyl.clientApiKey = process.env.PTERODACTYL_CLIENT_API_KEY;
+  }
 
   const smtpOverrides = {
     enabled: parseBoolean(process.env.SMTP_ENABLED),

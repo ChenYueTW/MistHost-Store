@@ -13,6 +13,20 @@ function client() {
   });
 }
 
+function clientApi() {
+  const apiKey = config.pterodactyl.clientApiKey || config.pterodactyl.clientKey;
+  if (!apiKey) return null;
+  return axios.create({
+    baseURL: `${config.pterodactyl.panelUrl.replace(/\/$/, "")}/api/client`,
+    timeout: 15000,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    }
+  });
+}
+
 export async function ensurePanelUser({ email, name, password }) {
   if (!config.pterodactyl.enabled) {
     return { status: "disabled", id: null, message: "Pterodactyl sync is disabled in config.json." };
@@ -80,6 +94,14 @@ export async function getPanelServer(serverId) {
   const api = client();
   const { data } = await api.get(`/servers/${serverId}`);
   return normalizeServer(data.attributes);
+}
+
+export async function getPanelServerPowerState(identifier) {
+  if (!config.pterodactyl.enabled || !identifier) return null;
+  const api = clientApi();
+  if (!api) return null;
+  const { data } = await api.get(`/servers/${identifier}/resources`);
+  return data.attributes?.current_state || null;
 }
 
 export async function renamePanelServer({ serverId, name }) {

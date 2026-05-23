@@ -947,15 +947,16 @@ input:focus {
 
 .server-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .server-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
+  gap: 18px;
   align-items: center;
-  padding: 16px;
+  min-height: 96px;
+  padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -979,13 +980,30 @@ input:focus {
   gap: 6px;
 }
 
-.server-row-main strong {
-  color: var(--ink);
-  font-size: 18px;
+.server-row-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.server-row-main span {
+.server-row-main strong {
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.server-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.server-row-meta span {
+  padding: 5px 9px;
   color: var(--muted);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   font-size: 13px;
 }
 
@@ -1026,6 +1044,68 @@ input:focus {
   font-weight: 900;
 }
 
+.server-detail-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%);
+}
+
+.server-detail-hero h2 {
+  margin: 0 0 10px;
+  font-size: 34px;
+}
+
+.server-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.server-state::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.server-state.running {
+  color: #0a7a50;
+  background: #dff8ec;
+}
+
+.server-state.offline {
+  color: #667085;
+  background: #eef2f6;
+}
+
+.server-state.starting,
+.server-state.stopping,
+.server-state.syncing {
+  color: #8a5600;
+  background: #fff0c7;
+}
+
+.server-detail-form {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
 .server-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1054,6 +1134,29 @@ input:focus {
 .server-card-form input,
 .server-card-form select {
   width: 100%;
+}
+
+.server-detail-grid label {
+  display: grid;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.server-detail-grid input,
+.server-detail-grid select {
+  width: 100%;
+}
+
+.server-save-button {
+  justify-self: end;
+  min-width: 150px;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.server-save-button:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  background: var(--surface-2);
 }
 
 .animated-back {
