@@ -62,6 +62,47 @@ export async function listMinecraftEggs() {
   return (data.data || []).map((egg) => normalizeEgg(egg.attributes));
 }
 
+export async function getPanelServer(serverId) {
+  if (!config.pterodactyl.enabled || !serverId) return null;
+  const api = client();
+  const { data } = await api.get(`/servers/${serverId}`);
+  return normalizeServer(data.attributes);
+}
+
+export async function renamePanelServer({ serverId, name }) {
+  if (!config.pterodactyl.enabled) return { status: "disabled", message: "Pterodactyl sync is disabled in config.json." };
+  const api = client();
+  const server = await getServer(api, serverId);
+  await api.patch(`/servers/${serverId}/details`, {
+    external_id: server.external_id || null,
+    name,
+    user: server.user,
+    description: server.description || ""
+  });
+  return { status: "updated" };
+}
+
+export async function updatePanelServerEgg({ serverId, nestId, eggId }) {
+  if (!config.pterodactyl.enabled) return { status: "disabled", message: "Pterodactyl sync is disabled in config.json." };
+  const api = client();
+  const egg = await getEgg(api, nestId, eggId);
+  const dockerImage = egg.docker_image || firstDockerImage(egg.docker_images);
+  if (!dockerImage || !egg.startup) return { status: "manual", message: "Selected egg is missing docker image or startup command." };
+  await api.patch(`/servers/${serverId}/startup`, {
+    startup: egg.startup,
+    environment: defaultEggEnvironment(egg),
+    egg: Number(eggId),
+    image: dockerImage,
+    skip_scripts: false
+  });
+  return { status: "updated", egg };
+}
+
+export function panelServerUrl(identifier) {
+  if (!identifier) return config.pterodactyl.panelUrl.replace(/\/$/, "");
+  return `${config.pterodactyl.panelUrl.replace(/\/$/, "")}/server/${identifier}`;
+}
+
 export async function resetPanelUserPassword({ email, password }) {
   if (!config.pterodactyl.enabled) {
     return { status: "disabled", id: null, message: "Pterodactyl sync is disabled in config.json." };
@@ -162,7 +203,14 @@ export async function provisionServer({ customer, product, order, orderItem, nod
   if (provisionConfig.deploy) payload.deploy = provisionConfig.deploy;
 
   const { data } = await api.post("/servers", payload);
-  return { status: "provisioned", pterodactylServerId: data.attributes.id };
+  const server = normalizeServer(data.attributes);
+  return {
+    status: server.installed ? "provisioned" : "manual",
+    pterodactylServerId: server.id,
+    identifier: server.identifier,
+    installed: server.installed,
+    name: server.name
+  };
 }
 
 async function findPanelUser(api, email) {
@@ -188,6 +236,28 @@ async function getEgg(api, nestId, eggId) {
     params: { include: "variables" }
   });
   return normalizeEgg(data.attributes);
+}
+
+async function getServer(api, serverId) {
+  const { data } = await api.get(`/servers/${serverId}`);
+  return normalizeServer(data.attributes);
+}
+
+function normalizeServer(server) {
+  const installed = server.container?.installed ?? server.installed;
+  return {
+    id: server.id,
+    uuid: server.uuid,
+    identifier: server.identifier,
+    external_id: server.external_id,
+    name: server.name,
+    description: server.description,
+    user: server.user,
+    nest: server.nest,
+    egg: server.egg,
+    suspended: Boolean(server.suspended),
+    installed: installed === true || installed === 1 || installed === "1" || installed === "installed"
+  };
 }
 
 function normalizeEgg(egg) {

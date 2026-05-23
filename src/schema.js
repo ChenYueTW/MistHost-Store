@@ -96,6 +96,26 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   CONSTRAINT fk_password_reset_customer FOREIGN KEY (customer_id) REFERENCES customers(id)
 );
 
+CREATE TABLE IF NOT EXISTS customer_servers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL,
+  order_id INTEGER NULL,
+  order_item_id INTEGER NULL,
+  pterodactyl_server_id INTEGER NOT NULL UNIQUE,
+  pterodactyl_identifier TEXT NULL,
+  name TEXT NOT NULL,
+  egg_id INTEGER NULL,
+  nest_id INTEGER NULL,
+  egg_name TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'manual',
+  installed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_customer_servers_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+  CONSTRAINT fk_customer_servers_order FOREIGN KEY (order_id) REFERENCES orders(id),
+  CONSTRAINT fk_customer_servers_order_item FOREIGN KEY (order_item_id) REFERENCES order_items(id)
+);
+
 CREATE TRIGGER IF NOT EXISTS orders_updated_at
 AFTER UPDATE ON orders
 FOR EACH ROW
@@ -108,6 +128,13 @@ AFTER UPDATE ON category_node_settings
 FOR EACH ROW
 BEGIN
   UPDATE category_node_settings SET updated_at = CURRENT_TIMESTAMP WHERE category = OLD.category;
+END;
+
+CREATE TRIGGER IF NOT EXISTS customer_servers_updated_at
+AFTER UPDATE ON customer_servers
+FOR EACH ROW
+BEGIN
+  UPDATE customer_servers SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
 `);
 
@@ -145,6 +172,15 @@ function addMissingColumns() {
     ["provision_message", "TEXT NULL"],
     ["pterodactyl_server_id", "INTEGER NULL"],
     ["pterodactyl_server_ids", "TEXT NULL"]
+  ]);
+
+  addColumns("customer_servers", [
+    ["pterodactyl_identifier", "TEXT NULL"],
+    ["egg_id", "INTEGER NULL"],
+    ["nest_id", "INTEGER NULL"],
+    ["egg_name", "TEXT NULL"],
+    ["status", "TEXT NOT NULL DEFAULT 'manual'"],
+    ["installed", "INTEGER NOT NULL DEFAULT 0"]
   ]);
 }
 

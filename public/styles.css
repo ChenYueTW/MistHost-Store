@@ -940,6 +940,73 @@ input:focus {
   box-shadow: 0 0 10px var(--accent);
 }
 
+.server-icon.installing span::after {
+  background: #f6b73c;
+  box-shadow: 0 0 10px rgba(246, 183, 60, 0.7);
+}
+
+.server-list {
+  display: grid;
+  gap: 14px;
+}
+
+.server-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr) auto;
+  gap: 14px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.server-row-main,
+.server-inline-form,
+.server-inline-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.server-row-main strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.server-row-main span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.server-row-main em {
+  justify-self: start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.server-row-main em.ready {
+  color: #0a7a50;
+  background: #dff8ec;
+}
+
+.server-row-main em.installing {
+  color: #8a5600;
+  background: #fff0c7;
+}
+
+.server-inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.server-inline-form input,
+.server-inline-form select {
+  width: 100%;
+}
+
 .animated-back {
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
@@ -1768,6 +1835,8 @@ dd {
   .coupon-admin-form,
   .coupon-admin-row,
   .node-setting-row,
+  .server-row,
+  .server-inline-form,
   .product-admin-heading,
   .product-admin-controls,
   .product-admin-controls form:first-child {

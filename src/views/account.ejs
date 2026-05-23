@@ -6,6 +6,7 @@
     <h1>會員中心</h1>
     <a class="<%= activeTab === 'orders' ? 'active' : '' %>" href="/account?tab=orders">我的訂單</a>
     <a class="<%= activeTab === 'profile' ? 'active' : '' %>" href="/account?tab=profile">個人資料</a>
+    <a class="<%= activeTab === 'servers' ? 'active' : '' %>" href="/account?tab=servers">我的伺服器</a>
   </aside>
 
   <section class="account-content">
@@ -92,6 +93,56 @@
               <span>NT$ <%= order.amount %></span>
               <em><%= statusLabels[order.status] || order.status %></em>
             </a>
+          <% }) %>
+        </div>
+      <% } %>
+    <% } %>
+
+    <% if (activeTab === 'servers') { %>
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">Servers</p>
+          <h2>我的伺服器</h2>
+        </div>
+      </div>
+      <% if (serverError) { %>
+        <div class="alert"><%= serverError %></div>
+      <% } %>
+      <% if (serverNotice) { %>
+        <div class="notice"><%= serverNotice %></div>
+      <% } %>
+      <% if (!servers || servers.length === 0) { %>
+        <div class="empty-state">目前沒有已開通或開通中的伺服器。</div>
+      <% } else { %>
+        <div class="server-list">
+          <% servers.forEach((server) => { %>
+            <article class="server-row">
+              <div class="server-row-main">
+                <strong><%= server.name %></strong>
+                <span><%= server.product_name || 'Server' %> / <%= server.order_no || '-' %></span>
+                <span>Egg：<%= server.egg_name || server.egg_id || '-' %></span>
+                <em class="<%= server.status === 'provisioned' ? 'ready' : 'installing' %>"><%= server.statusLabel %></em>
+              </div>
+              <form class="server-inline-form" method="post" action="/account/servers/<%= server.id %>/name">
+                <label>
+                  名稱
+                  <input name="name" value="<%= server.name %>" maxlength="80" required>
+                </label>
+                <button class="button ghost" type="submit">改名</button>
+              </form>
+              <form class="server-inline-form" method="post" action="/account/servers/<%= server.id %>/egg">
+                <label>
+                  Egg
+                  <select name="minecraftEggId" <%= minecraftEggs.length === 0 ? 'disabled' : '' %>>
+                    <% minecraftEggs.forEach((egg) => { %>
+                      <option value="<%= egg.id %>" <%= Number(server.egg_id) === Number(egg.id) ? 'selected' : '' %>><%= egg.name %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <button class="button ghost" type="submit" <%= minecraftEggs.length === 0 ? 'disabled' : '' %>>更改 Egg</button>
+              </form>
+              <a class="button primary" href="<%= server.panelUrl %>" target="_blank" rel="noreferrer">前往控制台</a>
+            </article>
           <% }) %>
         </div>
       <% } %>

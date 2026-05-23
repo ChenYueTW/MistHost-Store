@@ -20,11 +20,15 @@ import { paymentForm, verifyCheckMacValue } from "./ecpay.js";
 import { sendPasswordResetEmail } from "./mailer.js";
 import {
   ensurePanelUser,
+  getPanelServer,
   getPanelUserByEmail,
   listMinecraftEggs,
   listPanelNodes,
+  panelServerUrl,
   provisionServer,
+  renamePanelServer,
   resetPanelUserPassword,
+  updatePanelServerEgg,
   verifyPanelCredentials
 } from "./pterodactyl.js";
 import { runStartupMigrations } from "./schema.js";
@@ -563,23 +567,65 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 app.get("/account", requireAuth, async (req, res, next) => {
   try {
     const requestedTab = String(req.query.tab || "orders");
-    const activeTab = ["orders", "profile"].includes(requestedTab) ? requestedTab : "orders";
-    const orders = await query(`
-      SELECT o.*, p.name AS product_name
-      FROM orders o
-      JOIN products p ON p.id = o.product_id
-      WHERE o.customer_id = :customerId
-      ORDER BY o.created_at DESC
-    `, { customerId: req.session.userId });
+    const activeTab = ["orders", "servers", "profile"].includes(requestedTab) ? requestedTab : "orders";
+    await refreshCustomerProvisioning(req.session.userId);
+    const [orders, servers, minecraftEggs] = await Promise.all([
+      getAccountOrders(req.session.userId),
+      getCustomerServers(req.session.userId),
+      activeTab === "servers" ? getMinecraftEggOptions() : Promise.resolve([])
+    ]);
     res.render("account", {
       activeTab,
       orders,
+      servers,
+      minecraftEggs,
       passwordLabel: res.locals.user.panel_password_last || "尚未儲存",
       passwordError: null,
       passwordNotice: null,
+      serverError: null,
+      serverNotice: null,
       resetPassword: null,
       statusLabels
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/account/servers/:id/name", requireAuth, async (req, res, next) => {
+  try {
+    const server = await getOwnedCustomerServer(req.session.userId, req.params.id);
+    if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
+    const name = String(req.body.name || "").trim();
+    if (!name) return res.redirect("/account?tab=servers");
+    await renamePanelServer({ serverId: server.pterodactyl_server_id, name });
+    await query("UPDATE customer_servers SET name = :name WHERE id = :id", { id: server.id, name });
+    res.redirect("/account?tab=servers");
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
+  try {
+    const server = await getOwnedCustomerServer(req.session.userId, req.params.id);
+    if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
+    const minecraftEggs = await getMinecraftEggOptions();
+    const eggId = Number(req.body.minecraftEggId || 0);
+    const selected = minecraftEggs.find((egg) => Number(egg.id) === eggId);
+    if (!selected) return res.redirect("/account?tab=servers");
+    await updatePanelServerEgg({ serverId: server.pterodactyl_server_id, nestId: selected.nest, eggId: selected.id });
+    await query(`
+      UPDATE customer_servers
+      SET egg_id = :eggId,
+          nest_id = :nestId,
+          egg_name = :eggName,
+          status = 'manual',
+          installed = 0
+      WHERE id = :id
+    `, { id: server.id, eggId: selected.id, nestId: selected.nest, eggName: selected.name });
+    await updateOrderProvisioningStatus(server.order_id);
+    res.redirect("/account?tab=servers");
   } catch (error) {
     next(error);
   }
@@ -863,6 +909,7 @@ app.post("/payments/ecpay/info", (req, res) => {
 
 app.get("/orders/:id", requireAuth, async (req, res, next) => {
   try {
+    await refreshOrderProvisioning(req.params.id);
     const rows = await query(`
       SELECT o.*, COALESCE(p.name, (
         SELECT oi.product_name
@@ -1143,6 +1190,57 @@ async function provisionPaidOrder(orderId) {
     allServerIds.push(...serverIds);
     itemSummaries.push({ status: itemStatus, message, serverIds });
 
+    for (const result of results.filter((entry) => entry.pterodactylServerId)) {
+      await query(`
+        INSERT INTO customer_servers (
+          customer_id,
+          order_id,
+          order_item_id,
+          pterodactyl_server_id,
+          pterodactyl_identifier,
+          name,
+          egg_id,
+          nest_id,
+          egg_name,
+          status,
+          installed
+        )
+        VALUES (
+          :customerId,
+          :orderId,
+          :orderItemId,
+          :serverId,
+          :identifier,
+          :name,
+          :eggId,
+          :nestId,
+          :eggName,
+          :status,
+          :installed
+        )
+        ON CONFLICT(pterodactyl_server_id) DO UPDATE SET
+          pterodactyl_identifier = excluded.pterodactyl_identifier,
+          name = excluded.name,
+          egg_id = excluded.egg_id,
+          nest_id = excluded.nest_id,
+          egg_name = excluded.egg_name,
+          status = excluded.status,
+          installed = excluded.installed
+      `, {
+        customerId: order.customer_id,
+        orderId: order.id,
+        orderItemId: item.id,
+        serverId: result.pterodactylServerId,
+        identifier: result.identifier || null,
+        name: result.name || `${item.name} #${order.id}`,
+        eggId: item.server_type_egg_id || null,
+        nestId: item.server_type_nest_id || null,
+        eggName: item.server_type_name || null,
+        status: result.status,
+        installed: result.status === "provisioned" ? 1 : 0
+      });
+    }
+
     await query(`
       UPDATE order_items
       SET provision_status = :status,
@@ -1198,6 +1296,151 @@ async function getPanelNodesForAdmin() {
   } catch {
     return [];
   }
+}
+
+async function refreshCustomerProvisioning(customerId) {
+  await backfillCustomerServers(customerId);
+  const servers = await query(`
+    SELECT *
+    FROM customer_servers
+    WHERE customer_id = :customerId
+      AND status != 'provisioned'
+  `, { customerId });
+
+  for (const server of servers) {
+    await refreshStoredServer(server);
+  }
+
+  const orderIds = [...new Set(servers.map((server) => server.order_id).filter(Boolean))];
+  for (const orderId of orderIds) await updateOrderProvisioningStatus(orderId);
+}
+
+async function refreshOrderProvisioning(orderId) {
+  const rows = await query("SELECT customer_id FROM orders WHERE id = :orderId LIMIT 1", { orderId });
+  if (rows[0]) await refreshCustomerProvisioning(rows[0].customer_id);
+}
+
+async function refreshStoredServer(server) {
+  try {
+    const panelServer = await getPanelServer(server.pterodactyl_server_id);
+    if (!panelServer) return;
+    const status = panelServer.installed ? "provisioned" : "manual";
+    await query(`
+      UPDATE customer_servers
+      SET pterodactyl_identifier = :identifier,
+          name = :name,
+          egg_id = COALESCE(:eggId, egg_id),
+          nest_id = COALESCE(:nestId, nest_id),
+          status = :status,
+          installed = :installed
+      WHERE id = :id
+    `, {
+      id: server.id,
+      identifier: panelServer.identifier || server.pterodactyl_identifier || null,
+      name: panelServer.name || server.name,
+      eggId: panelServer.egg || null,
+      nestId: panelServer.nest || null,
+      status,
+      installed: panelServer.installed ? 1 : 0
+    });
+  } catch (error) {
+    await query("UPDATE customer_servers SET status = 'manual' WHERE id = :id", { id: server.id });
+  }
+}
+
+async function updateOrderProvisioningStatus(orderId) {
+  if (!orderId) return;
+  const itemRows = await query("SELECT id FROM order_items WHERE order_id = :orderId", { orderId });
+  for (const item of itemRows) {
+    const servers = await query("SELECT status FROM customer_servers WHERE order_item_id = :itemId", { itemId: item.id });
+    if (servers.length === 0) continue;
+    const itemStatus = servers.every((server) => server.status === "provisioned") ? "provisioned" : "manual";
+    await query("UPDATE order_items SET provision_status = :status WHERE id = :id", { id: item.id, status: itemStatus });
+  }
+
+  const statuses = await query("SELECT provision_status FROM order_items WHERE order_id = :orderId", { orderId });
+  if (statuses.length === 0) return;
+  const finalStatus = statuses.every((item) => item.provision_status === "provisioned") ? "provisioned" : "manual";
+  await query("UPDATE orders SET status = :status WHERE id = :orderId AND status IN ('paid', 'manual', 'provisioned')", { orderId, status: finalStatus });
+}
+
+async function backfillCustomerServers(customerId) {
+  const rows = await query(`
+    SELECT oi.*,
+           o.customer_id,
+           o.id AS order_id
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.customer_id = :customerId
+  `, { customerId });
+
+  for (const item of rows) {
+    const serverIds = parseServerIds(item.pterodactyl_server_ids, item.pterodactyl_server_id);
+    for (const serverId of serverIds) {
+      await query(`
+        INSERT INTO customer_servers (
+          customer_id,
+          order_id,
+          order_item_id,
+          pterodactyl_server_id,
+          name,
+          egg_id,
+          nest_id,
+          egg_name,
+          status,
+          installed
+        )
+        VALUES (
+          :customerId,
+          :orderId,
+          :orderItemId,
+          :serverId,
+          :name,
+          :eggId,
+          :nestId,
+          :eggName,
+          :status,
+          :installed
+        )
+        ON CONFLICT(pterodactyl_server_id) DO NOTHING
+      `, {
+        customerId,
+        orderId: item.order_id,
+        orderItemId: item.id,
+        serverId,
+        name: item.product_name,
+        eggId: item.server_type_egg_id || null,
+        nestId: item.server_type_nest_id || null,
+        eggName: item.server_type_name || null,
+        status: item.provision_status === "provisioned" ? "provisioned" : "manual",
+        installed: item.provision_status === "provisioned" ? 1 : 0
+      });
+    }
+  }
+}
+
+async function getCustomerServers(customerId) {
+  await backfillCustomerServers(customerId);
+  const rows = await query(`
+    SELECT cs.*,
+           o.order_no,
+           oi.product_name
+    FROM customer_servers cs
+    LEFT JOIN orders o ON o.id = cs.order_id
+    LEFT JOIN order_items oi ON oi.id = cs.order_item_id
+    WHERE cs.customer_id = :customerId
+    ORDER BY cs.created_at DESC, cs.id DESC
+  `, { customerId });
+  return rows.map((server) => ({
+    ...server,
+    panelUrl: panelServerUrl(server.pterodactyl_identifier),
+    statusLabel: statusLabels[server.status] || server.status
+  }));
+}
+
+async function getOwnedCustomerServer(customerId, serverId) {
+  const rows = await query("SELECT * FROM customer_servers WHERE id = :serverId AND customer_id = :customerId LIMIT 1", { serverId, customerId });
+  return rows[0] ?? null;
 }
 
 async function getMinecraftEggOptions() {

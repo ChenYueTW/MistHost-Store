@@ -95,6 +95,26 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   CONSTRAINT fk_password_reset_customer FOREIGN KEY (customer_id) REFERENCES customers(id)
 );
 
+CREATE TABLE IF NOT EXISTS customer_servers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL,
+  order_id INTEGER NULL,
+  order_item_id INTEGER NULL,
+  pterodactyl_server_id INTEGER NOT NULL UNIQUE,
+  pterodactyl_identifier TEXT NULL,
+  name TEXT NOT NULL,
+  egg_id INTEGER NULL,
+  nest_id INTEGER NULL,
+  egg_name TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'manual',
+  installed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_customer_servers_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+  CONSTRAINT fk_customer_servers_order FOREIGN KEY (order_id) REFERENCES orders(id),
+  CONSTRAINT fk_customer_servers_order_item FOREIGN KEY (order_item_id) REFERENCES order_items(id)
+);
+
 CREATE TRIGGER IF NOT EXISTS orders_updated_at
 AFTER UPDATE ON orders
 FOR EACH ROW
@@ -107,6 +127,13 @@ AFTER UPDATE ON category_node_settings
 FOR EACH ROW
 BEGIN
   UPDATE category_node_settings SET updated_at = CURRENT_TIMESTAMP WHERE category = OLD.category;
+END;
+
+CREATE TRIGGER IF NOT EXISTS customer_servers_updated_at
+AFTER UPDATE ON customer_servers
+FOR EACH ROW
+BEGIN
+  UPDATE customer_servers SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
 `);
 
@@ -137,6 +164,17 @@ addOrderItemColumn("server_type_egg_id", "INTEGER NULL");
 addOrderItemColumn("server_type_nest_id", "INTEGER NULL");
 addOrderItemColumn("server_type_name", "TEXT NULL");
 addOrderItemColumn("pterodactyl_server_ids", "TEXT NULL");
+
+const customerServerColumns = db.prepare("PRAGMA table_info(customer_servers)").all().map((column) => column.name);
+const addCustomerServerColumn = (name, definition) => {
+  if (!customerServerColumns.includes(name)) db.exec(`ALTER TABLE customer_servers ADD COLUMN ${name} ${definition}`);
+};
+addCustomerServerColumn("pterodactyl_identifier", "TEXT NULL");
+addCustomerServerColumn("egg_id", "INTEGER NULL");
+addCustomerServerColumn("nest_id", "INTEGER NULL");
+addCustomerServerColumn("egg_name", "TEXT NULL");
+addCustomerServerColumn("status", "TEXT NOT NULL DEFAULT 'manual'");
+addCustomerServerColumn("installed", "INTEGER NOT NULL DEFAULT 0");
 
 const count = db.prepare("SELECT COUNT(*) AS count FROM products").get().count;
 if (count === 0) {
