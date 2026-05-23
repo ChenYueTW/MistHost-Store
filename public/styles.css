@@ -810,7 +810,8 @@ input:focus {
 
 .password-field {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
 }
 
 .password-field input {
@@ -823,19 +824,42 @@ input:focus {
   top: 50%;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   color: var(--muted);
-  background: transparent;
-  border: 0;
+  background: #f6f9fd;
+  border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
+  transform: translateY(-50%);
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
 .password-toggle:hover {
   color: var(--primary-dark);
-  background: var(--surface-2);
+  background: #e8f2ff;
+  border-color: #c9def6;
+}
+
+.password-toggle svg {
+  grid-area: 1 / 1;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.password-toggle .eye-closed,
+.password-toggle.is-visible .eye-open {
+  display: none;
+}
+
+.password-toggle.is-visible .eye-closed {
+  display: block;
 }
 
 .muted-copy {
