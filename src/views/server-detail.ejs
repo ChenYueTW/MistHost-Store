@@ -1,0 +1,67 @@
+<%- include("partials/header") %>
+
+<section class="account-shell">
+  <aside class="account-sidebar">
+    <p class="eyebrow">Server</p>
+    <h1>伺服器管理</h1>
+    <a href="/account?tab=servers">我的伺服器</a>
+    <a href="/account">我的訂單</a>
+  </aside>
+
+  <section class="account-content">
+    <div class="section-head compact">
+      <div>
+        <p class="eyebrow">Pterodactyl</p>
+        <h2><%= server.name %></h2>
+      </div>
+      <a class="button primary" href="<%= server.panelUrl %>" target="_blank" rel="noreferrer">前往控制台</a>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert"><%= error %></div>
+    <% } %>
+    <% if (notice) { %>
+      <div class="notice"><%= notice %></div>
+    <% } %>
+
+    <dl class="order-meta account-credentials">
+      <dt>狀態</dt><dd><%= server.statusLabel %></dd>
+      <dt>Server ID</dt><dd><%= server.pterodactyl_server_id %></dd>
+      <dt>Identifier</dt><dd><%= server.pterodactyl_identifier || '-' %></dd>
+      <dt>Egg</dt><dd><%= server.egg_name || server.egg_id || '-' %></dd>
+      <dt>訂單</dt><dd><%= server.order_no || '-' %></dd>
+    </dl>
+
+    <div class="server-detail-grid">
+      <form class="server-card-form" method="post" action="/account/servers/<%= server.id %>/name">
+        <div>
+          <p class="eyebrow">Name</p>
+          <h3>更改名稱</h3>
+        </div>
+        <label>
+          伺服器名稱
+          <input name="name" value="<%= server.name %>" maxlength="80" required>
+        </label>
+        <button class="button ghost" type="submit">儲存名稱</button>
+      </form>
+
+      <form class="server-card-form" method="post" action="/account/servers/<%= server.id %>/egg">
+        <div>
+          <p class="eyebrow">Egg</p>
+          <h3>更改 Egg</h3>
+        </div>
+        <label>
+          伺服器類型
+          <select name="minecraftEggId" <%= minecraftEggs.length === 0 ? 'disabled' : '' %>>
+            <% minecraftEggs.forEach((egg) => { %>
+              <option value="<%= egg.id %>" <%= Number(server.egg_id) === Number(egg.id) ? 'selected' : '' %>><%= egg.name %></option>
+            <% }) %>
+          </select>
+        </label>
+        <button class="button ghost" type="submit" <%= minecraftEggs.length === 0 ? 'disabled' : '' %>>套用 Egg</button>
+      </form>
+    </div>
+  </section>
+</section>
+
+<%- include("partials/footer") %>

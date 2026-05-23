@@ -593,15 +593,32 @@ app.get("/account", requireAuth, async (req, res, next) => {
   }
 });
 
+app.get("/account/servers/:id", requireAuth, async (req, res, next) => {
+  try {
+    const server = await getOwnedCustomerServer(res.locals.user, req.params.id);
+    if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
+    const minecraftEggs = await getMinecraftEggOptions();
+    res.render("server-detail", {
+      server,
+      minecraftEggs,
+      error: null,
+      notice: null,
+      statusLabels
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/account/servers/:id/name", requireAuth, async (req, res, next) => {
   try {
     const server = await getOwnedCustomerServer(res.locals.user, req.params.id);
     if (!server) return res.status(404).render("error", { message: "找不到伺服器。" });
     const name = String(req.body.name || "").trim();
-    if (!name) return res.redirect("/account?tab=servers");
+    if (!name) return res.redirect(`/account/servers/${encodeURIComponent(req.params.id)}`);
     await renamePanelServer({ serverId: server.pterodactyl_server_id, name });
     await query("UPDATE customer_servers SET name = :name WHERE pterodactyl_server_id = :serverId", { serverId: server.pterodactyl_server_id, name });
-    res.redirect("/account?tab=servers");
+    res.redirect(`/account/servers/${encodeURIComponent(req.params.id)}`);
   } catch (error) {
     next(error);
   }
@@ -614,7 +631,7 @@ app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
     const minecraftEggs = await getMinecraftEggOptions();
     const eggId = Number(req.body.minecraftEggId || 0);
     const selected = minecraftEggs.find((egg) => Number(egg.id) === eggId);
-    if (!selected) return res.redirect("/account?tab=servers");
+    if (!selected) return res.redirect(`/account/servers/${encodeURIComponent(req.params.id)}`);
     await updatePanelServerEgg({ serverId: server.pterodactyl_server_id, nestId: selected.nest, eggId: selected.id });
     await query(`
       UPDATE customer_servers
@@ -626,7 +643,7 @@ app.post("/account/servers/:id/egg", requireAuth, async (req, res, next) => {
       WHERE pterodactyl_server_id = :serverId
     `, { serverId: server.pterodactyl_server_id, eggId: selected.id, nestId: selected.nest, eggName: selected.name });
     await updateOrderProvisioningStatus(server.order_id);
-    res.redirect("/account?tab=servers");
+    res.redirect(`/account/servers/${encodeURIComponent(req.params.id)}`);
   } catch (error) {
     next(error);
   }

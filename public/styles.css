@@ -952,13 +952,24 @@ input:focus {
 
 .server-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
-  align-items: end;
+  align-items: center;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.server-row-link {
+  color: inherit;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.server-row-link:hover {
+  transform: translateY(-1px);
+  border-color: #b7d2ef;
+  background: #f6faff;
 }
 
 .server-row-main,
@@ -1004,6 +1015,44 @@ input:focus {
 
 .server-inline-form input,
 .server-inline-form select {
+  width: 100%;
+}
+
+.server-row-action {
+  padding: 10px 14px;
+  color: var(--primary-dark);
+  background: #dcecff;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.server-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.server-card-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.server-card-form h3 {
+  margin: 0;
+}
+
+.server-card-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.server-card-form input,
+.server-card-form select {
   width: 100%;
 }
 
@@ -1836,6 +1885,7 @@ dd {
   .coupon-admin-row,
   .node-setting-row,
   .server-row,
+  .server-detail-grid,
   .server-inline-form,
   .product-admin-heading,
   .product-admin-controls,
