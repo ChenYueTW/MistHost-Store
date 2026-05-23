@@ -19,7 +19,10 @@
     </label>
     <label>
       密碼
-      <input type="password" name="password" autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>" minlength="8" required>
+      <span class="password-field">
+        <input type="password" name="password" autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>" minlength="8" required>
+        <button class="password-toggle" type="button" aria-label="顯示密碼" data-password-toggle>👁</button>
+      </span>
     </label>
     <button class="button primary full" type="submit"><%= mode === "register" ? "註冊並同步 Panel" : "登入" %></button>
     <% if (mode === "login") { %>
@@ -39,5 +42,18 @@
     <% } %>
   </form>
 </section>
+
+<script>
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.closest(".password-field")?.querySelector("input");
+      if (!input) return;
+      const visible = input.type === "text";
+      input.type = visible ? "password" : "text";
+      button.setAttribute("aria-label", visible ? "顯示密碼" : "隱藏密碼");
+      button.textContent = visible ? "👁" : "◉";
+    });
+  });
+</script>
 
 <%- include("partials/footer") %>
