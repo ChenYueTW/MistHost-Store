@@ -358,6 +358,34 @@ app.get("/login", (req, res) => {
   res.render("auth", { mode: "login", error: null });
 });
 
+app.get("/forgot-password", (req, res) => {
+  res.render("forgot-password", { error: null, notice: null, newPassword: null });
+});
+
+app.post("/forgot-password", async (req, res, next) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const user = email ? await findCustomerByEmail(email) : null;
+    if (!user) {
+      return res.status(404).render("forgot-password", {
+        error: "找不到這個 Email 的帳戶。",
+        notice: null,
+        newPassword: null
+      });
+    }
+
+    const password = generateRandomPassword(16);
+    await resetCustomerPassword(user, password);
+    return res.render("forgot-password", {
+      error: null,
+      notice: "密碼已重設，可用於本店登入與 Panel 登入。",
+      newPassword: password
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/login", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
@@ -450,7 +478,8 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 
 app.get("/account", requireAuth, async (req, res, next) => {
   try {
-    const activeTab = req.query.tab === "profile" ? "profile" : "orders";
+    const requestedTab = String(req.query.tab || "orders");
+    const activeTab = ["orders", "profile", "sftp"].includes(requestedTab) ? requestedTab : "orders";
     const orders = await query(`
       SELECT o.*, p.name AS product_name
       FROM orders o
@@ -465,6 +494,7 @@ app.get("/account", requireAuth, async (req, res, next) => {
       passwordError: null,
       passwordNotice: null,
       resetPassword: null,
+      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels
     });
   } catch (error) {
@@ -506,6 +536,7 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
       passwordError: null,
       passwordNotice: null,
       resetPassword: password,
+      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels
     });
   } catch (error) {
@@ -525,6 +556,7 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
       passwordError: null,
       passwordNotice: null,
       resetPassword: null,
+      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels,
       ...locals
     });
@@ -1134,6 +1166,45 @@ async function getAccountOrders(customerId) {
     WHERE o.customer_id = :customerId
     ORDER BY o.created_at DESC
   `, { customerId });
+}
+
+async function resetCustomerPassword(user, password) {
+  const result = await resetPanelUserPassword({ email: user.email, password });
+  const passwordHash = await hashPassword(password);
+  await query(`
+    UPDATE customers
+    SET panel_password_last = :password,
+        password_hash = :passwordHash,
+        pterodactyl_user_id = COALESCE(:panelUserId, pterodactyl_user_id),
+        pterodactyl_sync_status = :status
+    WHERE id = :id
+  `, {
+    id: user.id,
+    password,
+    passwordHash,
+    panelUserId: result.id,
+    status: result.message
+  });
+  return result;
+}
+
+function buildSftpInfo(user, orders) {
+  const host = config.pterodactyl?.sftpHost || safeHostname(config.pterodactyl?.panelUrl) || "Panel SFTP Host";
+  const port = Number(config.pterodactyl?.sftpPort || 2022);
+  return {
+    host,
+    port,
+    usernameHint: user?.email || "",
+    orders: orders.filter((order) => ["provisioned", "manual"].includes(order.status))
+  };
+}
+
+function safeHostname(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
 }
 
 function isValidCustomPassword(password) {

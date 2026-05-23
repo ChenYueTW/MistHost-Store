@@ -16,6 +16,8 @@
     "panelUrl": "https://panel.example.com",
     "apiKey": "replace-with-pterodactyl-application-api-key",
     "defaultUserPassword": "replace-with-default-password",
+    "sftpHost": "panel.example.com",
+    "sftpPort": 2022,
     "enabled": false
   },
   "ecpay": {

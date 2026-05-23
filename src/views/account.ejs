@@ -6,6 +6,7 @@
     <h1>會員中心</h1>
     <a class="<%= activeTab === 'orders' ? 'active' : '' %>" href="/account?tab=orders">我的訂單</a>
     <a class="<%= activeTab === 'profile' ? 'active' : '' %>" href="/account?tab=profile">個人資料</a>
+    <a class="<%= activeTab === 'sftp' ? 'active' : '' %>" href="/account?tab=sftp">SFTP</a>
   </aside>
 
   <section class="account-content">
@@ -95,6 +96,36 @@
           <% }) %>
         </div>
       <% } %>
+    <% } %>
+
+    <% if (activeTab === 'sftp') { %>
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">SFTP</p>
+          <h2>SFTP 連線資訊</h2>
+        </div>
+      </div>
+      <div class="sftp-panel">
+        <div class="sftp-connection">
+          <div><span>Host</span><strong><%= sftpInfo.host %></strong></div>
+          <div><span>Port</span><strong><%= sftpInfo.port %></strong></div>
+          <div><span>密碼</span><strong><%= passwordLabel %></strong></div>
+        </div>
+        <p>每台 Pterodactyl 伺服器都有自己的 SFTP Username，請到 Panel 的該伺服器 Settings 頁面複製 Username；密碼使用會員中心顯示的密碼。</p>
+        <% if (sftpInfo.orders.length === 0) { %>
+          <div class="empty-state">目前沒有已完成開通的服務。</div>
+        <% } else { %>
+          <div class="sftp-services">
+            <% sftpInfo.orders.forEach((order) => { %>
+              <a href="/orders/<%= order.id %>">
+                <strong><%= order.product_name %></strong>
+                <span><%= order.order_no %></span>
+                <em><%= order.pterodactyl_server_id ? `Panel Server #${order.pterodactyl_server_id}` : '請至 Panel 查看 SFTP Username' %></em>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
     <% } %>
   </section>
 </section>

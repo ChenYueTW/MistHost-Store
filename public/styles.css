@@ -801,6 +801,39 @@ input:focus {
   text-align: center;
 }
 
+.forgot-link {
+  justify-self: center;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.muted-copy {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.recovery-password {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  color: #11294a;
+  background: #e8f2ff;
+  border: 1px solid #c9def6;
+  border-radius: 8px;
+}
+
+.recovery-password span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.recovery-password strong {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
 .auth-switch a {
   color: var(--primary);
   font-weight: 900;
@@ -1179,6 +1212,56 @@ dd {
 .order-list {
   display: grid;
   gap: 10px;
+}
+
+.sftp-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.sftp-panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.sftp-connection {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sftp-connection div,
+.sftp-services a {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.sftp-connection span,
+.sftp-services span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.sftp-connection strong,
+.sftp-services strong,
+.sftp-services em {
+  overflow-wrap: anywhere;
+}
+
+.sftp-services {
+  display: grid;
+  gap: 10px;
+}
+
+.sftp-services em {
+  color: var(--primary-dark);
+  font-style: normal;
+  font-weight: 900;
 }
 
 .order-row {
@@ -1742,7 +1825,8 @@ dd {
 
   .cart-row,
   .cart-row-edit,
-  .product-actions {
+  .product-actions,
+  .sftp-connection {
     grid-template-columns: 1fr;
   }
 }

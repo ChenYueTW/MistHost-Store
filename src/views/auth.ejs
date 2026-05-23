@@ -22,6 +22,9 @@
       <input type="password" name="password" autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>" minlength="8" required>
     </label>
     <button class="button primary full" type="submit"><%= mode === "register" ? "註冊並同步 Panel" : "登入" %></button>
+    <% if (mode === "login") { %>
+      <a class="forgot-link" href="/forgot-password">忘記密碼？</a>
+    <% } %>
 
     <div class="oauth-divider"><span>或使用</span></div>
     <div class="oauth-grid">
