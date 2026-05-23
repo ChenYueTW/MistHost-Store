@@ -17,6 +17,7 @@ import {
 import { config, paths, publicConfig } from "./config.js";
 import { findProduct, getActiveProducts, getProductsByCategory, pool, query } from "./db.js";
 import { paymentForm, verifyCheckMacValue } from "./ecpay.js";
+import { sendPasswordResetEmail } from "./mailer.js";
 import { ensurePanelUser, getPanelUserByEmail, listPanelNodes, resetPanelUserPassword, verifyPanelCredentials } from "./pterodactyl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -359,7 +360,7 @@ app.get("/login", (req, res) => {
 });
 
 app.get("/forgot-password", (req, res) => {
-  res.render("forgot-password", { error: null, notice: null, newPassword: null });
+  res.render("forgot-password", { error: null, notice: null });
 });
 
 app.post("/forgot-password", async (req, res, next) => {
@@ -367,20 +368,57 @@ app.post("/forgot-password", async (req, res, next) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const user = email ? await findCustomerByEmail(email) : null;
     if (!user) {
-      return res.status(404).render("forgot-password", {
-        error: "找不到這個 Email 的帳戶。",
-        notice: null,
-        newPassword: null
+      return res.render("forgot-password", {
+        error: null,
+        notice: "如果 Email 存在，系統會寄出重設密碼連結。"
       });
     }
 
-    const password = generateRandomPassword(16);
-    await resetCustomerPassword(user, password);
+    const token = await createPasswordResetToken(user.id);
+    const baseUrl = config.site.baseUrl.replace(/\/$/, "");
+    const resetUrl = `${baseUrl}/reset-password/${token}`;
+    await sendPasswordResetEmail({ to: user.email, resetUrl });
     return res.render("forgot-password", {
       error: null,
-      notice: "密碼已重設，可用於本店登入與 Panel 登入。",
-      newPassword: password
+      notice: "如果 Email 存在，系統會寄出重設密碼連結。"
     });
+  } catch (error) {
+    console.error("Password reset email failed:", error);
+    return res.status(500).render("forgot-password", {
+      error: "重設密碼信件寄送失敗，請確認 SMTP 設定。",
+      notice: null
+    });
+  }
+});
+
+app.get("/reset-password/:token", async (req, res, next) => {
+  try {
+    const reset = await findValidPasswordReset(req.params.token);
+    if (!reset) return res.status(400).render("reset-password", { token: null, error: "重設連結無效或已過期。", notice: null });
+    return res.render("reset-password", { token: req.params.token, error: null, notice: null });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/reset-password/:token", async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    const reset = await findValidPasswordReset(token);
+    if (!reset) return res.status(400).render("reset-password", { token: null, error: "重設連結無效或已過期。", notice: null });
+
+    const password = String(req.body.password || "");
+    const confirmPassword = String(req.body.confirmPassword || "");
+    if (!isValidCustomPassword(password)) {
+      return res.status(400).render("reset-password", { token, error: "密碼需大於 8 字元，且至少包含 1 個英文與 1 個數字。", notice: null });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).render("reset-password", { token, error: "兩次輸入的密碼不一致。", notice: null });
+    }
+
+    await resetCustomerPassword(reset, password);
+    await query("UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = :id", { id: reset.reset_token_id });
+    return res.render("reset-password", { token: null, error: null, notice: "密碼已更新，請使用新密碼登入。" });
   } catch (error) {
     next(error);
   }
@@ -479,7 +517,7 @@ app.get("/auth/:provider/callback", async (req, res, next) => {
 app.get("/account", requireAuth, async (req, res, next) => {
   try {
     const requestedTab = String(req.query.tab || "orders");
-    const activeTab = ["orders", "profile", "sftp"].includes(requestedTab) ? requestedTab : "orders";
+    const activeTab = ["orders", "profile"].includes(requestedTab) ? requestedTab : "orders";
     const orders = await query(`
       SELECT o.*, p.name AS product_name
       FROM orders o
@@ -494,7 +532,6 @@ app.get("/account", requireAuth, async (req, res, next) => {
       passwordError: null,
       passwordNotice: null,
       resetPassword: null,
-      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels
     });
   } catch (error) {
@@ -536,7 +573,6 @@ app.post("/account/reset-panel-password", requireAuth, async (req, res, next) =>
       passwordError: null,
       passwordNotice: null,
       resetPassword: password,
-      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels
     });
   } catch (error) {
@@ -556,7 +592,6 @@ app.post("/account/password", requireAuth, async (req, res, next) => {
       passwordError: null,
       passwordNotice: null,
       resetPassword: null,
-      sftpInfo: buildSftpInfo(res.locals.user, orders),
       statusLabels,
       ...locals
     });
@@ -1188,23 +1223,39 @@ async function resetCustomerPassword(user, password) {
   return result;
 }
 
-function buildSftpInfo(user, orders) {
-  const host = config.pterodactyl?.sftpHost || safeHostname(config.pterodactyl?.panelUrl) || "Panel SFTP Host";
-  const port = Number(config.pterodactyl?.sftpPort || 2022);
-  return {
-    host,
-    port,
-    usernameHint: user?.email || "",
-    orders: orders.filter((order) => ["provisioned", "manual"].includes(order.status))
-  };
+async function createPasswordResetToken(customerId) {
+  await query("UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE customer_id = :customerId AND used_at IS NULL", { customerId });
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashResetToken(token);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await query(`
+    INSERT INTO password_reset_tokens (customer_id, token_hash, expires_at)
+    VALUES (:customerId, :tokenHash, :expiresAt)
+  `, { customerId, tokenHash, expiresAt });
+  return token;
 }
 
-function safeHostname(url) {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "";
-  }
+async function findValidPasswordReset(token) {
+  const tokenHash = hashResetToken(token);
+  const rows = await query(`
+    SELECT prt.id AS reset_token_id,
+           prt.customer_id,
+           c.id,
+           c.email,
+           c.name,
+           c.pterodactyl_user_id
+    FROM password_reset_tokens prt
+    JOIN customers c ON c.id = prt.customer_id
+    WHERE prt.token_hash = :tokenHash
+      AND prt.used_at IS NULL
+      AND prt.expires_at > :now
+    LIMIT 1
+  `, { tokenHash, now: new Date().toISOString() });
+  return rows[0] ?? null;
+}
+
+function hashResetToken(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
 function isValidCustomPassword(password) {

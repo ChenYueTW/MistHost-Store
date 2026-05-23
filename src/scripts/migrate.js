@@ -81,6 +81,16 @@ CREATE TABLE IF NOT EXISTS category_node_settings (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at TEXT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_password_reset_customer FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+
 CREATE TRIGGER IF NOT EXISTS orders_updated_at
 AFTER UPDATE ON orders
 FOR EACH ROW

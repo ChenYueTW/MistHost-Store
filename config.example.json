@@ -16,9 +16,18 @@
     "panelUrl": "https://panel.example.com",
     "apiKey": "replace-with-pterodactyl-application-api-key",
     "defaultUserPassword": "replace-with-default-password",
-    "sftpHost": "panel.example.com",
-    "sftpPort": 2022,
     "enabled": false
+  },
+  "smtp": {
+    "enabled": false,
+    "host": "smtp.example.com",
+    "port": 587,
+    "secure": false,
+    "from": "MistHost Store <no-reply@example.com>",
+    "auth": {
+      "user": "smtp-username",
+      "pass": "smtp-password"
+    }
   },
   "ecpay": {
     "merchantId": "replace-with-merchant-id",
