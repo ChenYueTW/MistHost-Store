@@ -22,8 +22,8 @@
       <span class="password-field">
         <input type="password" name="password" autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>" minlength="8" required>
         <button class="password-toggle" type="button" aria-label="顯示密碼" data-password-toggle>
-          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.1 12s3.6-6 9.9-6 9.9 6 9.9 6-3.6 6-9.9 6-9.9-6-9.9-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 5.2A10.4 10.4 0 0 1 12 5c6.3 0 9.9 7 9.9 7a17.6 17.6 0 0 1-3 3.8"></path><path d="M6.2 6.7A17.6 17.6 0 0 0 2.1 12s3.6 7 9.9 7c1.7 0 3.1-.4 4.4-1"></path></svg>
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"></path><path d="M12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"></path></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true" hidden style="display: none;"><path d="M3 3l18 18"></path><path d="M10.6 5.2A11.8 11.8 0 0 1 12 5c6 0 10 7 10 7a17.9 17.9 0 0 1-3.1 4.1"></path><path d="M6.4 6.7A18.4 18.4 0 0 0 2 12s4 7 10 7c1.8 0 3.4-.5 4.7-1.2"></path><path d="M9.9 9.9a2.5 2.5 0 0 0 3.2 3.2"></path></svg>
         </button>
       </span>
     </label>
@@ -52,8 +52,14 @@
       const input = button.closest(".password-field")?.querySelector("input");
       if (!input) return;
       const visible = input.type === "text";
+      const openIcon = button.querySelector(".eye-open");
+      const closedIcon = button.querySelector(".eye-closed");
       input.type = visible ? "password" : "text";
       button.classList.toggle("is-visible", !visible);
+      openIcon?.toggleAttribute("hidden", !visible);
+      closedIcon?.toggleAttribute("hidden", visible);
+      if (openIcon) openIcon.style.display = visible ? "" : "none";
+      if (closedIcon) closedIcon.style.display = visible ? "none" : "";
       button.setAttribute("aria-label", visible ? "顯示密碼" : "隱藏密碼");
     });
   });

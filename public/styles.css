@@ -862,6 +862,10 @@ input:focus {
   display: block;
 }
 
+.password-toggle svg[hidden] {
+  display: none;
+}
+
 .muted-copy {
   color: var(--muted);
   line-height: 1.7;
