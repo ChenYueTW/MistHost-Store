@@ -1038,7 +1038,7 @@ input:focus {
 .server-detail-panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: minmax(0, 1fr) 120px;
   gap: 28px;
   min-height: 430px;
   padding: 26px;
@@ -1084,20 +1084,21 @@ input:focus {
 
 .server-detail-status {
   align-self: start;
+  justify-self: start;
   display: grid;
   justify-items: start;
   gap: 10px;
   width: fit-content;
   min-height: 0;
   padding: 12px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background: transparent;
 }
 
 .server-detail-status strong {
   color: var(--ink);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .server-mini-icon {
