@@ -21,6 +21,10 @@ function applyEnvironmentOverrides(baseConfig) {
   const nextConfig = structuredClone(baseConfig);
 
   if (process.env.PORT) nextConfig.port = parseNumber(process.env.PORT, nextConfig.port);
+  if (process.env.DATABASE_FILE) {
+    nextConfig.database = nextConfig.database || {};
+    nextConfig.database.file = process.env.DATABASE_FILE;
+  }
 
   const smtpOverrides = {
     enabled: parseBoolean(process.env.SMTP_ENABLED),

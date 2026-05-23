@@ -27,6 +27,7 @@ import {
   resetPanelUserPassword,
   verifyPanelCredentials
 } from "./pterodactyl.js";
+import { runStartupMigrations } from "./schema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -45,6 +46,8 @@ const orderStatuses = [
   { value: "failed", label: "取消" }
 ];
 const statusLabels = Object.fromEntries(orderStatuses.map((status) => [status.value, status.label]));
+
+runStartupMigrations();
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
